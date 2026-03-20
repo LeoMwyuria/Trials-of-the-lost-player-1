@@ -3,7 +3,6 @@
 A personalized multi-gate puzzle-adventure website where the player — called **"Tarnished"** — must solve increasingly complex trials crafted by a character named **YAIR**. Each gate tests different skills: source code inspection, luck, quick math, and logical deduction. Built as a dark, mysterious, game-like experience inspired by Elden Ring / Dark Souls lore.
 
 ---
-
 ## The Journey
 
 ### Gate 0 — The First Trial (`/`)
