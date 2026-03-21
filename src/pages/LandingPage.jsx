@@ -76,7 +76,7 @@ function LandingPage() {
   return (
     <div className="landing-container">
 
-      <GateMusic src="/src/assets/audio/Game of Thrones.mp3" />
+      <GateMusic src={new URL('../assets/audio/Game of Thrones.mp3', import.meta.url).href} />
 
       <div className="stars"></div>
       <div className="twinkling"></div>

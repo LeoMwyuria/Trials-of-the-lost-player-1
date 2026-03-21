@@ -205,6 +205,7 @@ function EldenRingGate() {
   const droneImgRef = useRef(null);
   const cheeseImgRef = useRef(null);
   const coinImgRef = useRef(null);
+  const meteorImgRef = useRef(null);
   const ratRunImgRef = useRef(null);
   const ratIdleImgRef = useRef(null);
   const ratAttackImgRef = useRef(null);
@@ -375,6 +376,10 @@ function EldenRingGate() {
     const coinImg = new Image();
     coinImg.src = new URL('../assets/eldenring/gold_coin.png', import.meta.url).href;
     coinImgRef.current = coinImg;
+
+    const meteorImg = new Image();
+    meteorImg.src = new URL('../assets/meteor.png', import.meta.url).href;
+    meteorImgRef.current = meteorImg;
 
     const soapImg = new Image();
     soapImg.src = new URL('../assets/eldenring/soap.png', import.meta.url).href;
@@ -2569,23 +2574,23 @@ function EldenRingGate() {
 
         // Draw projectile based on type
         if (rocket.shower) {
-          // Gold coin shower
-          const coinImg = coinImgRef.current;
-          if (coinImg?.complete && coinImg.naturalWidth > 0) {
-            ctx.drawImage(coinImg, rocket.x, rocket.y, rw, rh);
+          // Meteor shower
+          const meteorImg = meteorImgRef.current;
+          if (meteorImg?.complete && meteorImg.naturalWidth > 0) {
+            ctx.drawImage(meteorImg, rocket.x, rocket.y, rw, rh);
           } else {
-            ctx.fillStyle = '#ffdd00';
+            ctx.fillStyle = '#ff6633';
             ctx.beginPath();
             ctx.arc(rocket.x + rw / 2, rocket.y + rh / 2, rw / 2, 0, Math.PI * 2);
             ctx.fill();
           }
-          // Sparkle trail behind coin
+          // Fire trail behind meteor
           ctx.save();
           ctx.globalAlpha = 0.3;
           for (let s = 1; s <= 2; s++) {
             const sparkleY = rocket.y - s * 12;
             const sparkleSize = 2 + Math.random() * 2;
-            ctx.fillStyle = '#ffee88';
+            ctx.fillStyle = '#ff8844';
             ctx.beginPath();
             ctx.arc(rocket.x + rw / 2 + (Math.random() - 0.5) * 8, sparkleY, sparkleSize, 0, Math.PI * 2);
             ctx.fill();

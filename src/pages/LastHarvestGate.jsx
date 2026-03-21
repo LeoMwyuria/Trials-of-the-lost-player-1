@@ -95,7 +95,7 @@ function LastHarvestGate() {
   return (
     <div className="harvest-container">
 
-      <GateMusic src="/src/assets/audio/Catan Universe Menu Theme.mp3" />
+      <GateMusic src={new URL('../assets/audio/Catan Universe Menu Theme.mp3', import.meta.url).href} />
 
       <div className="stars"></div>
       <div className="twinkling"></div>

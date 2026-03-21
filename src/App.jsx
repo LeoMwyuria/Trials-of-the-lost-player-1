@@ -9,7 +9,10 @@ import Preloader from './components/Preloader';
 import './App.css';
 
 function App() {
-  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  // Check if assets were already loaded in this session
+  const [assetsLoaded, setAssetsLoaded] = useState(() => {
+    return sessionStorage.getItem('assetsLoaded') === 'true';
+  });
 
   // Enable audio autoplay on first load
   useEffect(() => {
@@ -26,7 +29,10 @@ function App() {
 
   // Show Preloader to load assets
   if (!assetsLoaded) {
-    return <Preloader onComplete={() => setAssetsLoaded(true)} />;
+    return <Preloader onComplete={() => {
+      setAssetsLoaded(true);
+      sessionStorage.setItem('assetsLoaded', 'true');
+    }} />;
   }
 
   // Finally show the app
