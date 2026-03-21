@@ -41,6 +41,7 @@ const ASSETS_TO_PRELOAD = {
     new URL('../assets/audio/Catan Universe Menu Theme.mp3', import.meta.url).href,
     new URL('../assets/audio/HAVA NAGILA (HARDTEKK).mp3', import.meta.url).href,
     new URL('../assets/audio/hava nagila.mp3', import.meta.url).href,
+    new URL('../assets/audio/ara-ver maswavli chkuas.mp3', import.meta.url).href,
     new URL('../assets/bee-audio/hakari.mp3', import.meta.url).href,
   ]
 };

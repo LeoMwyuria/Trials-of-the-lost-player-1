@@ -111,8 +111,18 @@ function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange })
         </div>
       )}
 
-      <audio ref={audioRef} loop>
+      <audio
+        ref={audioRef}
+        loop
+        preload="auto"
+        onError={(e) => {
+          console.error('Audio loading error:', e.target.error);
+          console.error('Audio src:', src);
+        }}
+        onLoadedData={() => console.log('Audio loaded:', src)}
+      >
         <source src={src} type="audio/mpeg" />
+        Your browser does not support the audio element.
       </audio>
     </>
   );

@@ -17,7 +17,7 @@ const beeTypes = [
   { id: 11, name: 'Irakli', rarity: 'BuzuBuzu', color: '#FFD700', image: new URL('../assets/bees-png/irakli.png', import.meta.url).href },
   { id: 12, name: 'Goris Vashli', rarity: 'Gemrieli', color: '#F0E68C', image: new URL('../assets/bees-png/gori.jpeg', import.meta.url).href },
   { id: 13, name: 'Mclovin', rarity: 'Sigma', color: '#8B4513', image: new URL('../assets/bees-png/foggel.png', import.meta.url).href },
-  { id: 14, name: 'Bikentiis Qababi', rarity: 'Kutaisis Goatio', color: '#FF4500', image: new URL('../assets/bees-png/bikentia.jpg', import.meta.url).href },
+  { id: 14, name: 'Acharul Khachapur', rarity: 'Imeruli >>', color: '#FF4500', image: new URL('../assets/bees-png/adj.jpg', import.meta.url).href },
   { id: 15, name: 'Horse', rarity: 'SUS', color: '#DC143C', image: new URL('../assets/bees-png/horse.jpg', import.meta.url).href },
   { id: 16, name: 'Microsoft Edge', rarity: 'Snail', color: '#DAA520', image: new URL('../assets/bees-png/microsoft.webp', import.meta.url).href },
   { id: 17, name: 'Radanh', rarity: 'Nightmare', color: '#8A2BE2', image: new URL('../assets/bees-png/radanh.avif', import.meta.url).href },
@@ -548,7 +548,7 @@ function BeeHiveGate() {
                   </div>
                 ) : (
                   <img
-                    src={new URL('../assets/eldenring/Gemini_Generated_Image_ivwmizivwmizivwm.png', import.meta.url).href}
+                    src={new URL('../assets/meteor.png', import.meta.url).href}
                     alt="Meteor"
                     className="meteor-rock"
                   />

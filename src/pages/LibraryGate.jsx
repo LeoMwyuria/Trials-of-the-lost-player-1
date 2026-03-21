@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import GateMusic from '../components/GateMusic';
 import './LibraryGate.css';
 
@@ -76,7 +77,28 @@ const BOOKS = [
   { id: 24, title: 'The Last Page', img: 'book_image_24.png', content: 'You flip to the last page expecting an ending, but find only this:\n\n"Every book in this library is a door. Most doors lead to rooms. Some doors lead to corridors. One door - just one - leads out.\n\nYou have been reading the wrong books.\n\nOr perhaps... the right ones, in the wrong order.\n\nThe Librarian sees all. The Librarian knows.\nBut the Librarian will never tell.\n\nClose this book. Look up. Begin again."\n\nThe page feels warm, as if recently written.' },
 ];
 
+// Word puzzle configuration
+const CORRECT_ANSWER = ['now', 'you', 'feel', 'like', 'number', 'one'];
+const DISTRACTOR_WORDS = [
+  'now', 'you', 'feel', 'like', 'number', 'one',
+  'echo', 'shadow', 'velocity', 'pulse', 'glimmer', 'horizon',
+  'cipher', 'drift', 'ember', 'flux', 'gravity', 'luminous',
+  'phantom', 'quantum', 'rift', 'spectrum', 'twilight', 'vortex',
+  'zenith', 'cascade', 'mirage', 'nova', 'orbit', 'paradox',
+  'resonance', 'silhouette', 'tempo', 'unity', 'whisper', 'xenon',
+  'yearn', 'zephyr', 'aurora', 'blaze', 'cosmic', 'dynamo',
+  'eclipse', 'fable', 'galaxy', 'halo', 'illusion', 'journey',
+  'nebula', 'stellar', 'infinity', 'momentum', 'serenity', 'odyssey',
+  'radiance', 'clarity', 'velocity', 'inertia', 'harmony', 'entropy',
+  'prism', 'crystal', 'emberlight', 'nightfall', 'daybreak', 'afterglow',
+  'starlight', 'moonbeam', 'sunflare', 'wildfire', 'tidal', 'deepwave',
+  'skylark', 'stormfront', 'rainfall', 'thunder', 'lightning', 'frost',
+  'glacier', 'summit', 'valley', 'forest', 'meadow', 'river',
+  'ocean', 'desert', 'island', 'volcano', 'canyon', 'cliff',
+  'breeze', 'gust', 'cyclone', 'tempest', 'blizzard', 'hurricane',];
+
 function LibraryGate() {
+  const navigate = useNavigate();
   const [openBook, setOpenBook] = useState(null);
   const [hoveredBook, setHoveredBook] = useState(null);
   const [dustParticles, setDustParticles] = useState([]);
@@ -85,6 +107,13 @@ function LibraryGate() {
   const [kafkaAnswer, setKafkaAnswer] = useState('');
   const [kafkaUnlocked, setKafkaUnlocked] = useState(false);
   const [kafkaError, setKafkaError] = useState(false);
+
+  // Word puzzle state
+  const [showWordPuzzle, setShowWordPuzzle] = useState(false);
+  const [placedWords, setPlacedWords] = useState(['', '', '', '', '', '']);
+  const [fallingWords, setFallingWords] = useState([]);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [dragPreview, setDragPreview] = useState(null);
 
   useEffect(() => {
     console.log("%c📚 GATE 1: LOST IN THE LIBRARY 📚", "color: #c9a95f; font-size: 20px; font-weight: bold;");
@@ -172,6 +201,154 @@ function LibraryGate() {
     }
   };
 
+  // Word Puzzle handlers
+  const createFallingWord = () => {
+    // Combine correct words and distractors, shuffle for variety
+    const allWords = [...CORRECT_ANSWER, ...DISTRACTOR_WORDS];
+    const word = allWords[Math.floor(Math.random() * allWords.length)];
+
+    const wordElement = {
+      id: Date.now() + Math.random(),
+      text: word,
+      left: Math.random() * 85 + 5, // 5-90% from left
+      duration: Math.random() * 12 + 12, // 12-24s fall time
+      opacity: Math.random() * 0.4 + 0.6,
+      fontSize: Math.random() * 12 + 18, // 18-30px
+    };
+
+    setFallingWords(prev => {
+      // Keep max 50 words on screen at once for performance
+      if (prev.length > 50) {
+        return [...prev.slice(-40), wordElement];
+      }
+      return [...prev, wordElement];
+    });
+
+    // Remove after animation completes
+    setTimeout(() => {
+      setFallingWords(prev => prev.filter(w => w.id !== wordElement.id));
+    }, (wordElement.duration + 2) * 1000);
+  };
+
+  const [draggedWord, setDraggedWord] = useState(null);
+  const [draggedSlotIndex, setDraggedSlotIndex] = useState(null);
+
+  const handleWordDragStart = (e, word) => {
+    setDraggedWord(word);
+    e.dataTransfer.effectAllowed = 'move';
+
+    // Create custom drag preview
+    setDragPreview({ text: word, x: e.clientX, y: e.clientY });
+
+    // Hide default drag image
+    const dragImage = document.createElement('div');
+    dragImage.style.opacity = '0';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => dragImage.remove(), 0);
+  };
+
+  const handleSlotDragStart = (e, index) => {
+    setDraggedSlotIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+
+    // Create custom drag preview for slot word
+    const word = placedWords[index];
+    setDragPreview({ text: word, x: e.clientX, y: e.clientY });
+
+    // Hide default drag image
+    const dragImage = document.createElement('div');
+    dragImage.style.opacity = '0';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => dragImage.remove(), 0);
+  };
+
+  const handleDrag = (e) => {
+    if (e.clientX === 0 && e.clientY === 0) return; // Ignore end drag
+    if (dragPreview) {
+      setDragPreview(prev => ({ ...prev, x: e.clientX, y: e.clientY }));
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragPreview(null);
+  };
+
+  const handleSlotDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleSlotDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleSlotDrop = (e, targetIndex) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+
+    const newPlaced = [...placedWords];
+
+    if (draggedWord !== null) {
+      // Dropping a falling word
+      newPlaced[targetIndex] = draggedWord;
+      setDraggedWord(null);
+    } else if (draggedSlotIndex !== null) {
+      // Swapping words between slots
+      const temp = newPlaced[targetIndex];
+      newPlaced[targetIndex] = newPlaced[draggedSlotIndex];
+      newPlaced[draggedSlotIndex] = temp;
+      setDraggedSlotIndex(null);
+    }
+
+    setPlacedWords(newPlaced);
+  };
+
+  const handleSlotClick = (index) => {
+    // Clear the slot
+    const newPlaced = [...placedWords];
+    newPlaced[index] = '';
+    setPlacedWords(newPlaced);
+  };
+
+  const checkAnswer = () => {
+    const isCorrect = placedWords.every((word, idx) =>
+      word.toLowerCase() === CORRECT_ANSWER[idx]
+    );
+
+    if (isCorrect) {
+      // Navigate to Gate 2
+      navigate('/gate-2-hive');
+    } else {
+      // Show error or reset
+      alert('Not quite right! Try again.');
+      setPlacedWords(['', '', '', '', '', '']);
+    }
+  };
+
+  const resetPuzzle = () => {
+    setPlacedWords(['', '', '', '', '', '']);
+  };
+
+  // Start word puzzle
+  useEffect(() => {
+    if (!showWordPuzzle) return;
+
+    // Create initial batch of words - MORE WORDS
+    for (let i = 0; i < 30; i++) {
+      setTimeout(() => createFallingWord(), i * 150);
+    }
+
+    // Keep creating words - FASTER SPAWNING
+    const interval = setInterval(() => {
+      createFallingWord();
+    }, 800); // New word every 0.8s
+
+    return () => clearInterval(interval);
+  }, [showWordPuzzle]);
+
   // Split 24 books across 4 shelves (6 per shelf)
   const shelves = [
     BOOKS.slice(0, 6),
@@ -183,8 +360,8 @@ function LibraryGate() {
   return (
     <div className="library-container">
 
-      {/* Music Player - TODO: Add library music file */}
-      {/* <GateMusic src="/src/assets/audio/library-music.mp3" /> */}
+      {/* Music Player */}
+      <GateMusic src={new URL('../assets/audio/ara-ver maswavli chkuas.mp3', import.meta.url).href} />
 
       {/* Opens counter */}
       <div className={`opens-counter ${opensLeft <= 10 ? 'low' : ''} ${opensLeft <= 0 ? 'empty' : ''}`}>
@@ -213,6 +390,12 @@ function LibraryGate() {
       <div className="library-header">
         <h1 className="library-title">Lost in the Library</h1>
         <p className="library-subtitle">Click a book to open it. Some hold more than words...</p>
+        <button
+          className="guess-answer-btn"
+          onClick={() => setShowWordPuzzle(true)}
+        >
+          Guess the Answer
+        </button>
       </div>
 
       {/* Bookshelf */}
@@ -310,6 +493,91 @@ function LibraryGate() {
                   </p>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Word Puzzle Overlay */}
+      {showWordPuzzle && (
+        <div className="word-puzzle-overlay">
+          <button
+            className="word-puzzle-close"
+            onClick={() => setShowWordPuzzle(false)}
+          >
+            ✕
+          </button>
+
+          {/* Falling words */}
+          <div className="falling-words-container">
+            {fallingWords.map(word => (
+              <div
+                key={word.id}
+                className="falling-word"
+                style={{
+                  left: `${word.left}%`,
+                  animationDuration: `${word.duration}s`,
+                  opacity: word.opacity,
+                  fontSize: `${word.fontSize}px`,
+                }}
+                draggable
+                onDragStart={(e) => handleWordDragStart(e, word.text)}
+                onDrag={handleDrag}
+                onDragEnd={handleDragEnd}
+              >
+                {word.text}
+              </div>
+            ))}
+          </div>
+
+          {/* Drag Preview */}
+          {dragPreview && (
+            <div
+              className="drag-preview"
+              style={{
+                left: dragPreview.x,
+                top: dragPreview.y,
+              }}
+            >
+              {dragPreview.text}
+            </div>
+          )}
+
+          {/* Center placeholders */}
+          <div className="word-puzzle-center">
+            <h2 className="word-puzzle-title">Catch the Words</h2>
+            <p className="word-puzzle-hint">Drag words to the boxes in the correct order • Double-click to remove</p>
+
+            <div className="word-placeholders">
+              {placedWords.map((word, index) => (
+                <div
+                  key={index}
+                  className={`word-slot ${word ? 'filled' : 'empty'} ${dragOverIndex === index ? 'drag-over' : ''}`}
+                  draggable={!!word}
+                  onDragStart={(e) => word && handleSlotDragStart(e, index)}
+                  onDrag={handleDrag}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => handleSlotDragOver(e, index)}
+                  onDragLeave={handleSlotDragLeave}
+                  onDrop={(e) => handleSlotDrop(e, index)}
+                  onDoubleClick={() => word && handleSlotClick(index)}
+                >
+                  {word || `${index + 1}`}
+                </div>
+              ))}
+            </div>
+
+            <div className="word-puzzle-controls">
+              <button className="word-puzzle-reset" onClick={resetPuzzle}>
+                Reset
+              </button>
+              <button
+                className="word-puzzle-submit"
+                onClick={checkAnswer}
+                disabled={placedWords.some(w => w === '')}
+              >
+                Submit Answer
+              </button>
             </div>
           </div>
         </div>

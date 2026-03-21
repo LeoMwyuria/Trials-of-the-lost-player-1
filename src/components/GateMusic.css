@@ -3,7 +3,7 @@
 .gate-music-toggle {
   position: fixed;
   top: 50px;
-  right: 110px;
+  right: 160px;
   z-index: 999;
 }
 
@@ -31,7 +31,7 @@
 .gate-music-panel {
   position: fixed;
   top: 50px;
-  right: 110px;
+  right: 160px;
   z-index: 1000;
   background: rgba(30, 22, 14, 0.95);
   border: 1px solid #4a3828;
