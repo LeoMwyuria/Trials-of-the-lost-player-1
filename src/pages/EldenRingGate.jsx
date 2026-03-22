@@ -1172,7 +1172,7 @@ function EldenRingGate() {
 
       // ===== PLAYER ANIMATION =====
       if (isSlippingRef.current) {
-        // Don't override — animation was set once when slip started
+        // Don't override — slip animation was set when slip started
       } else if (!isAttackingRef.current && !isDashingRef.current) {
         const isMovingHorizontal = keysPressedRef.current['a'] || keysPressedRef.current['d'];
         if (!isOnGroundRef.current) {
@@ -1910,10 +1910,10 @@ function EldenRingGate() {
           const distY = soapCy - closestY;
 
           if (distX * distX + distY * distY < soapR * soapR) {
-            // Knight slips!
+            // Knight slips! Use Death animation
             isSlippingRef.current = true;
             slipEndTimeRef.current = now + SLIP_DURATION;
-            setKnightAnimation('__DeathNoMovement.gif?' + Date.now());
+            setKnightAnimation('__Death.gif');
             triggerScreenShake(5, 300);
             styleTextRef.current.push({
               text: 'SLIPPED!', x: knightPosRef.current.x, y: knightPosRef.current.y - 30,

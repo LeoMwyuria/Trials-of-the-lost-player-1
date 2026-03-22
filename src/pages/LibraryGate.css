@@ -754,15 +754,12 @@
   transition: all 0.2s ease;
   z-index: 5;
   padding: 4px 8px;
-  background: rgba(201, 169, 95, 0.05);
-  border-radius: 4px;
 }
 
 .falling-word:hover {
   color: #e8d08a;
   text-shadow: 0 0 20px rgba(232, 208, 138, 0.8);
   transform: scale(1.2);
-  background: rgba(201, 169, 95, 0.15);
 }
 
 .falling-word:active {

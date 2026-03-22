@@ -361,7 +361,10 @@ function LibraryGate() {
     <div className="library-container">
 
       {/* Music Player */}
-      <GateMusic src={new URL('../assets/audio/ara-ver maswavli chkuas.mp3', import.meta.url).href} />
+      <GateMusic
+        src={new URL('../assets/audio/ara-ver maswavli chkuas.mp3', import.meta.url).href}
+        initialVolume={0.15}
+      />
 
       {/* Opens counter */}
       <div className={`opens-counter ${opensLeft <= 10 ? 'low' : ''} ${opensLeft <= 0 ? 'empty' : ''}`}>

@@ -13,6 +13,16 @@ const ASSETS_TO_PRELOAD = {
     new URL('../assets/eldenring/gold_coin.png', import.meta.url).href,
     new URL('../assets/meteor.png', import.meta.url).href,
     new URL('../assets/eldenring/cheese.webp', import.meta.url).href,
+    // Knight animations for Elden Ring gate
+    new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__Idle.gif', import.meta.url).href,
+    new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__Run.gif', import.meta.url).href,
+    new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__Jump.gif', import.meta.url).href,
+    new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__Fall.gif', import.meta.url).href,
+    new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__Dash.gif', import.meta.url).href,
+    new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__Attack.gif', import.meta.url).href,
+    new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__Attack2.gif', import.meta.url).href,
+    new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__Death.gif', import.meta.url).href,
+    new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__DeathNoMovement.gif', import.meta.url).href,
     // Book images for library gate
     ...Array.from({ length: 24 }, (_, i) => new URL(`../assets/magicbook/64x64/book_image_${i + 1}.png`, import.meta.url).href),
     // Bee images
