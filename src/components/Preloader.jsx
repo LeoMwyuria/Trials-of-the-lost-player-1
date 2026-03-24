@@ -25,6 +25,7 @@ const ASSETS_TO_PRELOAD = {
     new URL('../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/__DeathNoMovement.gif', import.meta.url).href,
     // Book images for library gate
     ...Array.from({ length: 24 }, (_, i) => new URL(`../assets/magicbook/64x64/book_image_${i + 1}.png`, import.meta.url).href),
+    new URL('../assets/magicbook/64x64/book_image_27.png', import.meta.url).href,
     // Bee images
     new URL('../assets/bees-png/gojo.png', import.meta.url).href,
     new URL('../assets/bees-png/hakari.png', import.meta.url).href,
@@ -44,6 +45,7 @@ const ASSETS_TO_PRELOAD = {
     new URL('../assets/catan/wheat.png', import.meta.url).href,
     new URL('../assets/catan/wood.png', import.meta.url).href,
     new URL('../assets/catan/white.png', import.meta.url).href,
+    new URL('../assets/catan/robbery.png', import.meta.url).href,
   ],
   audio: [
     new URL('../assets/audio/Game of Thrones.mp3', import.meta.url).href,
@@ -52,6 +54,8 @@ const ASSETS_TO_PRELOAD = {
     new URL('../assets/audio/HAVA NAGILA (HARDTEKK).mp3', import.meta.url).href,
     new URL('../assets/audio/hava nagila.mp3', import.meta.url).href,
     new URL('../assets/audio/ara-ver maswavli chkuas.mp3', import.meta.url).href,
+    new URL('../assets/audio/v2.mp3', import.meta.url).href,
+    new URL('../assets/audio/Delirious.mp3', import.meta.url).href,
     new URL('../assets/bee-audio/hakari.mp3', import.meta.url).href,
   ]
 };
