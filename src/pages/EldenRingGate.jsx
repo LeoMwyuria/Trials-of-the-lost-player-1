@@ -20,9 +20,11 @@ const HITBOX_SCALE = 0.7; // Tighter projectile hitboxes = more forgiving for pl
 // Knight sprite is 120x80 intrinsic inside 280x200 frame
 // The actual visible knight is ~35x55px within the 120x80 sprite
 // At 280x200 scale: visible knight is ~82x137px
-const KNIGHT_HITBOX_WIDTH_SCALE = 0.20;   // 280 * 0.20 = ~56px (fairer body hitbox)
+const KNIGHT_HITBOX_WIDTH_SCALE = 0.10;   // 280 * 0.20 = ~56px (fairer body hitbox)
 const KNIGHT_HITBOX_HEIGHT_SCALE = 0.40;  // 200 * 0.40 = ~80px (fairer body hitbox)
-const KNIGHT_HITBOX_Y_OFFSET_SCALE = 0.35; // Offset to center on visible knight body
+const KNIGHT_HITBOX_Y_OFFSET_SCALE = 0.1; // Offset to center on visible knight body
+const KNIGHT_HITBOX_X_OFFSET = -10; // Negative moves hitbox left, positive moves right
+const KNIGHT_VISUAL_Y_OFFSET = 150; // Keeps collisions aligned with rendered knight sprite
 
 // Boss Fight Constants
 const BOSS_MAX_HEALTH = 1000;
@@ -154,17 +156,19 @@ const PHASE_TIMELINES = {
   ],
 };
 
-function getKnightHitbox(position) {
+function getKnightHitbox(position, facingDirection = 'right') {
   const hitboxWidth = KNIGHT_WIDTH * KNIGHT_HITBOX_WIDTH_SCALE;
   const hitboxHeight = KNIGHT_HEIGHT * KNIGHT_HITBOX_HEIGHT_SCALE;
-  const xInset = (KNIGHT_WIDTH - hitboxWidth) / 2;
+  const directionalOffset = facingDirection === 'left' ? -KNIGHT_HITBOX_X_OFFSET : KNIGHT_HITBOX_X_OFFSET;
+  const xInset = (KNIGHT_WIDTH - hitboxWidth) / 2 + directionalOffset;
   const yInset = KNIGHT_HEIGHT * KNIGHT_HITBOX_Y_OFFSET_SCALE;
+  const baseY = position.y + KNIGHT_VISUAL_Y_OFFSET;
 
   return {
     left: position.x + xInset,
     right: position.x + xInset + hitboxWidth,
-    top: position.y + yInset,
-    bottom: position.y + yInset + hitboxHeight,
+    top: baseY + yInset,
+    bottom: baseY + yInset + hitboxHeight,
   };
 }
 
@@ -326,6 +330,9 @@ function EldenRingGate() {
   // Victory slow-mo
   const victorySlowMoRef = useRef(false);
   const victorySlowMoEndRef = useRef(0);
+
+  // Debug hitbox visualization
+  const showHitboxesRef = useRef(true);
 
   // Combo counter
   const comboCountRef = useRef(0);
@@ -597,12 +604,29 @@ function EldenRingGate() {
       e.preventDefault();
     };
 
+    const handleRightClick = (e) => {
+      if (gameOverRef.current || victoryRef.current) return;
+      if (isSlippingRef.current) return;
+      if (e.button === 2) {
+        e.preventDefault();
+        const now = Date.now();
+        if (!isParryingRef.current && now >= parryCooldownEndRef.current) {
+          isParryingRef.current = true;
+          parryWindowEndRef.current = now + PARRY_WINDOW;
+          parryCooldownEndRef.current = now + PARRY_COOLDOWN;
+          setKnightAnimation('__Attack2.gif');
+        }
+      }
+    };
+
     const canvas = canvasRef.current;
     if (canvas) {
       canvas.addEventListener('mousedown', handleMouseDown);
+      canvas.addEventListener('mousedown', handleRightClick);
       canvas.addEventListener('contextmenu', handleContextMenu);
       return () => {
         canvas.removeEventListener('mousedown', handleMouseDown);
+        canvas.removeEventListener('mousedown', handleRightClick);
         canvas.removeEventListener('contextmenu', handleContextMenu);
       };
     }
@@ -999,8 +1023,9 @@ function EldenRingGate() {
 
     for (let i = 0; i < 12; i++) {
       setTimeout(() => {
-        const playerX = knightPosRef.current.x + KNIGHT_WIDTH / 2;
-        const playerY = knightPosRef.current.y + KNIGHT_HEIGHT / 2;
+        const playerHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
+        const playerX = (playerHitbox.left + playerHitbox.right) / 2;
+        const playerY = (playerHitbox.top + playerHitbox.bottom) / 2;
         const dy = playerY - bossY;
         const dx = playerX - bossX;
         const speed = 4 + Math.random() * 2;
@@ -1029,8 +1054,9 @@ function EldenRingGate() {
     console.log('🧼 SOAP THROW!');
     const bossX = bossPosRef.current.x + BOSS_WIDTH / 2;
     const bossY = bossPosRef.current.y + BOSS_HEIGHT / 2;
-    const playerX = knightPosRef.current.x + KNIGHT_WIDTH / 2;
-    const playerY = knightPosRef.current.y + KNIGHT_HEIGHT / 2;
+    const playerHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
+    const playerX = (playerHitbox.left + playerHitbox.right) / 2;
+    const playerY = (playerHitbox.top + playerHitbox.bottom) / 2;
     const dx = playerX - bossX;
     const dy = playerY - bossY;
     const mag = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1673,7 +1699,7 @@ function EldenRingGate() {
 
         // Collision with player
         if (!isInvulnerableRef.current) {
-          const knightHitbox = getKnightHitbox(knightPosRef.current);
+          const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
           if (bullet.x > knightHitbox.left && bullet.x < knightHitbox.right &&
               bullet.y > knightHitbox.top && bullet.y < knightHitbox.bottom) {
             const newHP = Math.max(0, playerHealthRef.current - 8);
@@ -1732,7 +1758,7 @@ function EldenRingGate() {
 
         // Collision with player (cooldown-based to prevent instant death)
         if (!isInvulnerableRef.current && now - lastDamageTimeRef.current >= DAMAGE_COOLDOWN) {
-          const knightHitbox = getKnightHitbox(knightPosRef.current);
+          const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
           if (knightHitbox.left < zone.x + zone.width &&
               knightHitbox.right > zone.x &&
               knightHitbox.top < zone.y + zone.height &&
@@ -1757,7 +1783,7 @@ function EldenRingGate() {
 
         // Only deal damage after telegraph phase, one-time hit per laser
         if (now > laser.fireTime && !isInvulnerableRef.current && !laser.hasHit) {
-          const knightHitbox = getKnightHitbox(knightPosRef.current);
+          const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
 
           if (laser.type === 'horizontal') {
             const laserTop = laser.y - 10;
@@ -1947,7 +1973,7 @@ function EldenRingGate() {
           const rTop = y + hitboxInsetY;
           const rBottom = y + rh - hitboxInsetY;
 
-          const knightHitbox = getKnightHitbox(knightPosRef.current);
+          const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
           let pLeft = knightHitbox.left;
           let pRight = knightHitbox.right;
           let pTop = knightHitbox.top;
@@ -2072,7 +2098,7 @@ function EldenRingGate() {
 
         // Collision with player
         if (!isInvulnerableRef.current && !isSlippingRef.current) {
-          const knightHitbox = getKnightHitbox(knightPosRef.current);
+          const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
           const soapCx = soap.x + soap.size / 2;
           const soapCy = soap.y + soap.size / 2;
           const soapR = soap.size / 2;
@@ -2116,7 +2142,7 @@ function EldenRingGate() {
             gc.y < -gc.size || gc.y > canvasSize.height + gc.size) {
           giantCoinRef.current = null;
         } else if (!isInvulnerableRef.current) {
-          const knightHitbox = getKnightHitbox(knightPosRef.current);
+          const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
           const gcCx = gc.x + gc.size / 2;
           const gcCy = gc.y + gc.size / 2;
           const gcR = gc.size / 2;
@@ -2222,7 +2248,7 @@ function EldenRingGate() {
 
         // Collision with player
         if (!isInvulnerableRef.current) {
-          const knightHitbox = getKnightHitbox(knightPosRef.current);
+          const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
           if (mr.x > knightHitbox.left - mr.size / 2 && mr.x < knightHitbox.right + mr.size / 2 &&
               mr.y > knightHitbox.top - mr.size / 2 && mr.y < knightHitbox.bottom + mr.size / 2) {
             if (now - lastDamageTimeRef.current >= DAMAGE_COOLDOWN) {
@@ -2250,7 +2276,7 @@ function EldenRingGate() {
         if (!trap.armed && now > trap.armTime) trap.armed = true;
 
         if (trap.armed && !isInvulnerableRef.current) {
-          const knightHitbox = getKnightHitbox(knightPosRef.current);
+          const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
           if (knightHitbox.left < trap.x + trap.size && knightHitbox.right > trap.x &&
               knightHitbox.top < trap.y + trap.size && knightHitbox.bottom > trap.y) {
             // Explode!
@@ -2321,7 +2347,7 @@ function EldenRingGate() {
         if (now > trail.endTime) return false;
         // Check player collision - slow them down
         if (!isInvulnerableRef.current) {
-          const knightHitbox = getKnightHitbox(knightPosRef.current);
+          const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
           if (knightHitbox.left < trail.x + trail.width && knightHitbox.right > trail.x &&
               knightHitbox.bottom > trail.y && knightHitbox.top < trail.y + trail.height) {
             isSlowedRef.current = true;
@@ -2376,7 +2402,7 @@ function EldenRingGate() {
             const laserLen = 600;
             const laserEndX = dl.x + Math.cos(dl.angle) * laserLen;
             const laserEndY = dl.y + Math.sin(dl.angle) * laserLen;
-            const knightHitbox = getKnightHitbox(knightPosRef.current);
+            const knightHitbox = getKnightHitbox(knightPosRef.current, facingDirRef.current);
             const kCx = (knightHitbox.left + knightHitbox.right) / 2;
             const kCy = (knightHitbox.top + knightHitbox.bottom) / 2;
 
@@ -2458,12 +2484,13 @@ function EldenRingGate() {
 
       const floatImg = floatPlatformImgRef.current;
       if (floatImg?.complete && floatImg.naturalWidth > 0) {
-        // Tile the float image across the full width
-        const floatAspect = floatImg.naturalWidth / floatImg.naturalHeight;
-        const tileHeight = PLATFORM_HEIGHT + 30; // Slightly taller for depth
-        const tileWidth = tileHeight * floatAspect;
-        for (let fx = 0; fx < canvasSize.width; fx += tileWidth - 20) {
-          ctx.drawImage(floatImg, fx, platformY - 15, tileWidth, tileHeight);
+        // Tile 4 copies of float image across width, fill floor to bottom
+        const tileCount = 4;
+        const tileWidth = canvasSize.width / tileCount;
+        const floorTop = platformY - 15;
+        const floorHeight = canvasSize.height - floorTop;
+        for (let i = 0; i < tileCount; i++) {
+          ctx.drawImage(floatImg, i * tileWidth, floorTop, tileWidth, floorHeight);
         }
       } else {
         // Fallback: simple dark platform
@@ -3257,7 +3284,7 @@ function EldenRingGate() {
       // ===== PARRY FLASH on knight =====
       if (now < parryFlashRef.current) {
         ctx.save();
-        const hb = getKnightHitbox(knightPosRef.current);
+        const hb = getKnightHitbox(knightPosRef.current, facingDirRef.current);
         const flashCx = (hb.left + hb.right) / 2;
         const flashCy = (hb.top + hb.bottom) / 2;
         // Bright golden burst effect at knight's center
@@ -3282,7 +3309,7 @@ function EldenRingGate() {
       // ===== PARRY READY INDICATOR =====
       if (isParryingRef.current) {
         ctx.save();
-        const hb2 = getKnightHitbox(knightPosRef.current);
+        const hb2 = getKnightHitbox(knightPosRef.current, facingDirRef.current);
         const kx = (hb2.left + hb2.right) / 2;
         const ky = (hb2.top + hb2.bottom) / 2;
         // Shield arc in front of player at knight's center
@@ -3338,6 +3365,94 @@ function EldenRingGate() {
         ctx.font = 'bold 12px monospace';
         ctx.fillStyle = '#aaa';
         ctx.fillText(`Style: ${stylePointsRef.current}`, canvasSize.width - 20, comboY + 20);
+        ctx.restore();
+      }
+
+      // ===== DEBUG HITBOX VISUALIZATION =====
+      if (showHitboxesRef.current) {
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+
+        // Knight hitbox (green)
+        const knightHB = getKnightHitbox(knightPosRef.current, facingDirRef.current);
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(knightHB.left, knightHB.top, knightHB.right - knightHB.left, knightHB.bottom - knightHB.top);
+
+        // Knight full sprite bounds (dim green)
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(knightPosRef.current.x, knightPosRef.current.y + KNIGHT_VISUAL_Y_OFFSET, KNIGHT_WIDTH, KNIGHT_HEIGHT);
+
+        // Rocket/projectile hitboxes (red)
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 1;
+        for (const rocket of rocketsRef.current) {
+          const rw = rocket.small ? RAIN_ROCKET_WIDTH : (rocket.cheese ? P3_CHEESE_WIDTH : ROCKET_WIDTH);
+          const rh = rocket.small ? RAIN_ROCKET_HEIGHT : (rocket.cheese ? P3_CHEESE_HEIGHT : ROCKET_HEIGHT);
+          const hitboxInsetX = rw * (1 - HITBOX_SCALE) / 2;
+          const hitboxInsetY = rh * (1 - HITBOX_SCALE) / 2;
+          ctx.strokeRect(rocket.x + hitboxInsetX, rocket.y + hitboxInsetY, rw * HITBOX_SCALE, rh * HITBOX_SCALE);
+        }
+
+        // Giant coin hitbox (orange)
+        if (giantCoinRef.current) {
+          const gc = giantCoinRef.current;
+          ctx.strokeStyle = '#ff8800';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(gc.x, gc.y, gc.size, gc.size);
+        }
+
+        // Boss hitbox (magenta)
+        if (bossStateRef.current !== BOSS_DEAD) {
+          ctx.strokeStyle = '#ff00ff';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(bossPosRef.current.x, bossPosRef.current.y, BOSS_WIDTH, BOSS_HEIGHT);
+        }
+
+        // Drone hitbox (cyan)
+        if (droneRef.current) {
+          ctx.strokeStyle = '#00ffff';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(droneRef.current.x, droneRef.current.y, P2_DRONE_WIDTH, P2_DRONE_HEIGHT);
+        }
+
+        // Rat hitbox (yellow)
+        if (ratRef.current && !ratRef.current.burrowed) {
+          ctx.strokeStyle = '#ffff00';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(ratRef.current.x, ratRef.current.y, P3_RAT_WIDTH, P3_RAT_HEIGHT);
+        }
+
+        // Drone bullets (cyan dots)
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 1;
+        for (const bullet of droneBulletsRef.current) {
+          ctx.strokeRect(bullet.x - 5, bullet.y - 5, 10, 10);
+        }
+
+        // Soap projectiles (pink)
+        ctx.strokeStyle = '#ff88ff';
+        ctx.lineWidth = 1;
+        for (const soap of soapProjectilesRef.current) {
+          ctx.strokeRect(soap.x - soap.size / 2, soap.y - soap.size / 2, soap.size, soap.size);
+        }
+
+        // Mini rats (yellow small)
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 1;
+        for (const mr of miniRatsRef.current) {
+          ctx.strokeRect(mr.x - 15, mr.y - 15, 30, 30);
+        }
+
+        // Cheese traps (orange small)
+        ctx.strokeStyle = '#ff8800';
+        ctx.lineWidth = 1;
+        for (const trap of cheeseTrapsRef.current) {
+          ctx.strokeRect(trap.x, trap.y, trap.size, trap.size);
+        }
+
+        ctx.setLineDash([]);
         ctx.restore();
       }
 
@@ -3621,14 +3736,15 @@ function EldenRingGate() {
 
       // ===== INVULNERABILITY SHIMMER on knight =====
       if (isInvulnerableRef.current) {
-        const kx = knightPosRef.current.x;
-        const ky = knightPosRef.current.y;
+        const hb = getKnightHitbox(knightPosRef.current, facingDirRef.current);
+        const kx = (hb.left + hb.right) / 2;
+        const ky = (hb.top + hb.bottom) / 2;
         ctx.save();
         ctx.globalAlpha = 0.2 + Math.sin(now * 0.02) * 0.15;
         ctx.strokeStyle = '#44ffff';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(kx + KNIGHT_WIDTH / 2, ky + KNIGHT_HEIGHT / 2, 50, 0, Math.PI * 2);
+        ctx.arc(kx, ky, 50, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
@@ -3686,7 +3802,7 @@ function EldenRingGate() {
         style={{
           position: 'absolute',
           left: `${knightPosition.x}px`,
-          top: `${knightPosition.y + 150}px`,
+            top: `${knightPosition.y + KNIGHT_VISUAL_Y_OFFSET}px`,
           width: `${KNIGHT_WIDTH}px`,
           height: `${KNIGHT_HEIGHT}px`,
           pointerEvents: 'none',
@@ -3697,8 +3813,8 @@ function EldenRingGate() {
 
       {/* Controls Hint */}
       <div className="controls-hint">
-        <span>A/D - Move | Space - Jump (2x) | SHIFT - Dash | F - Parry</span>
-        <span>Left Click - Attack | F - Parry coins back at boss!</span>
+        <span>A/D - Move | Space - Jump (2x) | SHIFT - Dash | F / Right Click - Parry</span>
+        <span>Left Click - Attack | F / Right Click - Parry coins back at boss!</span>
         <span style={{ fontSize: '0.85em', color: '#ffff44' }}>P1: Dodge rain gaps!</span>
         <span style={{ fontSize: '0.85em', color: '#ffaa33' }}>P2: Destroy drone!</span>
         <span style={{ fontSize: '0.85em', color: '#ff7722' }}>P3: Defeat the rat!</span>

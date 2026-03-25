@@ -131,7 +131,6 @@
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
-  transition: left 0.05s linear, top 0.05s linear;
 }
 
 .knight-sprite.flip-h {
