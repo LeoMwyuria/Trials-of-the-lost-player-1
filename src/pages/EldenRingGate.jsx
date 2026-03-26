@@ -4282,7 +4282,7 @@ function EldenRingGate() {
                 style={{
                   position: 'absolute',
                   left: sx - KNIGHT_WIDTH / 2,
-                  top: sy - KNIGHT_HEIGHT + 10,
+                  top: sy - KNIGHT_HEIGHT + 80,
                   width: KNIGHT_WIDTH,
                   height: KNIGHT_HEIGHT,
                   imageRendering: 'pixelated',
