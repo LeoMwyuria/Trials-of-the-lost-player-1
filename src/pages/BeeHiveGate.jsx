@@ -499,7 +499,7 @@ function BeeHiveGate() {
       {/* Tarnished Message */}
       {showTarnishedMessage && (
         <div className="tarnished-message-overlay">
-          <div className="tarnished-message">Foul Tarnished, in search of the Yair Taito.</div>
+          <div className="tarnished-message">Foul Tarnished, in search of the Sigma Boss.</div>
         </div>
       )}
 

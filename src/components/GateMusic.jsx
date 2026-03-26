@@ -7,7 +7,7 @@ import './GateMusic.css';
  * @param {boolean} autoplay - Whether to autoplay (default: true)
  * @param {number} initialVolume - Starting volume 0-1 (default: 0.2 = 20%)
  */
-function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange }) {
+function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange, startTime = 0 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(initialVolume);
   const [showControls, setShowControls] = useState(false);
@@ -15,33 +15,38 @@ function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange })
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !autoplay) return;
 
-    audio.volume = volume;
+    const startPlayback = () => {
+      audio.volume = volume;
+      if (startTime > 0) {
+        audio.currentTime = startTime;
+      }
+      audio.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {
+          setIsPlaying(false);
+          setTimeout(() => {
+            if (startTime > 0) audio.currentTime = startTime;
+            audio.play()
+              .then(() => setIsPlaying(true))
+              .catch(() => setIsPlaying(false));
+          }, 1000);
+        });
+    };
 
-    if (autoplay) {
-      // Small delay to ensure audio context is ready
-      const timer = setTimeout(() => {
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => setIsPlaying(true))
-            .catch((error) => {
-              console.log('Autoplay prevented:', error);
-              setIsPlaying(false);
-              // Auto-retry once after a delay
-              setTimeout(() => {
-                audio.play()
-                  .then(() => setIsPlaying(true))
-                  .catch(() => setIsPlaying(false));
-              }, 1000);
-            });
-        }
-      }, 100);
-
+    if (audio.readyState >= 1) {
+      // Metadata already loaded — seek and play immediately
+      const timer = setTimeout(startPlayback, 50);
       return () => clearTimeout(timer);
+    } else {
+      // Wait for metadata so currentTime seek actually works
+      audio.addEventListener('loadedmetadata', startPlayback, { once: true });
+      return () => audio.removeEventListener('loadedmetadata', startPlayback);
     }
-  }, [src, autoplay, volume]);
+  // volume intentionally excluded — handled by the effect below
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, autoplay, startTime]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -113,6 +118,7 @@ function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange })
 
       <audio
         ref={audioRef}
+        src={src}
         loop
         preload="auto"
         onError={(e) => {
@@ -120,10 +126,7 @@ function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange })
           console.error('Audio src:', src);
         }}
         onLoadedData={() => console.log('Audio loaded:', src)}
-      >
-        <source src={src} type="audio/mpeg" />
-        Your browser does not support the audio element.
-      </audio>
+      />
     </>
   );
 }

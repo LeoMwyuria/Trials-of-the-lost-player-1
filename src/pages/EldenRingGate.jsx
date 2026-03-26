@@ -4,6 +4,47 @@ import './EldenRingGate.css';
 
 const getKnightAnimation = (filename) => new URL(`../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/${filename}`, import.meta.url).href;
 
+// Yair Rage - Airflow assets
+const AIRFLOW_PAUZED_URL = new URL('../assets/eldenring/pauzed-airflow.png', import.meta.url).href;
+const AIRFLOW_UNPAUZED_URL = new URL('../assets/eldenring/unpauzed-airflow.png', import.meta.url).href;
+const WHATUP_URL = new URL('../assets/audio/whatup.mp3', import.meta.url).href;
+const YAIR_URL = new URL('../assets/audio/yair.mp3', import.meta.url).href;
+const DAHKAR_URL = new URL('../assets/audio/dahkar.mp3', import.meta.url).href;
+// Climbing key pool (15 distinct keys)
+const CLIMB_KEY_POOL = ['a', 'b', 'c', 'd', 'f', 'g', 'r', 'e', 's', 'q', 'w', 'z', 'x', 'v', 't'];
+// 2.5 seconds to press each key before auto-fail
+const CLIMB_KEY_TIMER_MS = 2500;
+// 15 stones — zigzag from bottom-right toward upper-left (Airflow toggle area)
+const CLIMB_STONE_LAYOUT = [
+  { x: 0.58, y: 0.91 },
+  { x: 0.46, y: 0.84 },
+  { x: 0.60, y: 0.77 },
+  { x: 0.42, y: 0.70 },
+  { x: 0.55, y: 0.63 },
+  { x: 0.36, y: 0.56 },
+  { x: 0.49, y: 0.49 },
+  { x: 0.30, y: 0.43 },
+  { x: 0.42, y: 0.37 },
+  { x: 0.25, y: 0.31 },
+  { x: 0.36, y: 0.25 },
+  { x: 0.20, y: 0.20 },
+  { x: 0.27, y: 0.15 },
+  { x: 0.15, y: 0.11 },
+  { x: 0.10, y: 0.22 }, // destination — Continue_Phase_4_Fighting toggle
+];
+// Per-hold visual properties (colors, sizes, shapes for climbing wall feel)
+const CLIMB_HOLD_COLORS = [
+  '#e84040','#f07820','#e8c000','#40cc44','#4488ff',
+  '#9040d0','#ff4488','#00b8c0','#ff6600','#22dd88',
+  '#cc2244','#4488cc','#dd8800','#8844cc','#44cc44',
+];
+const CLIMB_HOLD_SIZES = [52,60,46,68,50,58,44,66,54,48,62,50,56,44,78];
+const CLIMB_HOLD_SHAPES = [
+  '50%','10px 28px 10px 28px','55% 35% 55% 35%','28px 8px 28px 8px','50%',
+  '20px 42px 20px 42px','50%','12px 32px 12px 32px','50%','42% 58% 42% 58%',
+  '50%','16px 36px 16px 36px','50%','24px 6px 24px 6px','50%',
+];
+
 // Game Constants
 const KNIGHT_WIDTH = 280;
 const KNIGHT_HEIGHT = 200;
@@ -196,6 +237,13 @@ function EldenRingGate() {
   const [victory, setVictory] = useState(false);
   const [currentMusic, setCurrentMusic] = useState(new URL('../assets/audio/hava nagila.mp3', import.meta.url).href);
 
+  // Yair Rage state
+  const [yairRagePhase, setYairRagePhase] = useState(null); // null | 'ringing' | 'speaking' | 'climbing' | 'success'
+  const [climbDropCount, setClimbDropCount] = useState(0);
+  const [climbCurrentStep, setClimbCurrentStep] = useState(0);
+  const [climbKeyTimeLeft, setClimbKeyTimeLeft] = useState(CLIMB_KEY_TIMER_MS);
+  const [speakingElapsed, setSpeakingElapsed] = useState(0);
+
   // Refs for game physics
   const knightPosRef = useRef({ x: 100, y: 0 });
   const knightVelocityRef = useRef({ x: 0, y: 0 });
@@ -287,6 +335,9 @@ function EldenRingGate() {
   const PARRY_WINDOW = 300; // 300ms parry window
   const PARRY_COOLDOWN = 800;
 
+  // Explosion visuals
+  const explosionsRef = useRef([]);
+
   // Giant coin attack
   const giantCoinRef = useRef(null);
 
@@ -299,6 +350,7 @@ function EldenRingGate() {
   // Soap projectiles
   const soapProjectilesRef = useRef([]);
   const soapImgRef = useRef(null);
+  const curlyImgRef = useRef(null);
 
   // Slip state (when hit by soap)
   const isSlippingRef = useRef(false);
@@ -331,9 +383,6 @@ function EldenRingGate() {
   const victorySlowMoRef = useRef(false);
   const victorySlowMoEndRef = useRef(0);
 
-  // Debug hitbox visualization
-  const showHitboxesRef = useRef(true);
-
   // Combo counter
   const comboCountRef = useRef(0);
   const comboTimerRef = useRef(0);
@@ -342,6 +391,18 @@ function EldenRingGate() {
   // Score / style points
   const stylePointsRef = useRef(0);
   const styleTextRef = useRef([]);
+
+  // Yair Rage refs
+  const yairRageActiveRef = useRef(false);
+  const climbKeysRef = useRef([]);
+  const climbFallingRef = useRef(false);
+  const climbSlowPenaltyRef = useRef(false);
+  const climbDropCountRef = useRef(0);
+  const whatupAudioRef = useRef(null);
+  const yairAudioRef = useRef(null);
+  const dahkarAudioRef = useRef(null);
+  const climbTimerRef = useRef(null);
+  const speakingIntervalRef = useRef(null);
 
   // Game over/victory refs
   const gameOverRef = useRef(false);
@@ -405,6 +466,10 @@ function EldenRingGate() {
     const soapImg = new Image();
     soapImg.src = new URL('../assets/eldenring/soap.png', import.meta.url).href;
     soapImgRef.current = soapImg;
+
+    const curlyImg = new Image();
+    curlyImg.src = new URL('../assets/eldenring/curly.png', import.meta.url).href;
+    curlyImgRef.current = curlyImg;
 
     const now = Date.now();
     // Boss floats in the air - positioned to the right near edge
@@ -631,6 +696,74 @@ function EldenRingGate() {
       };
     }
   }, []);
+
+  // ===== CLIMBING KEY HANDLER =====
+  useEffect(() => {
+    if (yairRagePhase !== 'climbing') return;
+
+    const handleClimbKey = (e) => {
+      if (climbFallingRef.current) return;
+      const key = e.key.toLowerCase();
+      if (!CLIMB_KEY_POOL.includes(key)) return;
+      e.preventDefault();
+
+      const expectedKey = climbKeysRef.current[climbCurrentStep];
+      if (key === expectedKey) {
+        const newStep = climbCurrentStep + 1;
+        setClimbCurrentStep(newStep);
+        setClimbKeyTimeLeft(CLIMB_KEY_TIMER_MS);
+        setKnightAnimation('__WallHang.gif');
+        if (newStep >= CLIMB_STONE_LAYOUT.length) {
+          climbSuccess();
+        }
+      } else {
+        handleClimbFail();
+      }
+    };
+
+    window.addEventListener('keydown', handleClimbKey);
+    return () => window.removeEventListener('keydown', handleClimbKey);
+  }, [yairRagePhase, climbCurrentStep]);
+
+  // Per-key countdown timer — auto-fail if too slow
+  useEffect(() => {
+    if (yairRagePhase !== 'climbing') {
+      if (climbTimerRef.current) { clearInterval(climbTimerRef.current); climbTimerRef.current = null; }
+      return;
+    }
+    setClimbKeyTimeLeft(CLIMB_KEY_TIMER_MS);
+    if (climbTimerRef.current) clearInterval(climbTimerRef.current);
+
+    climbTimerRef.current = setInterval(() => {
+      if (climbFallingRef.current) return;
+      setClimbKeyTimeLeft(prev => {
+        if (prev <= 100) {
+          clearInterval(climbTimerRef.current);
+          climbTimerRef.current = null;
+          handleClimbFail();
+          return 0;
+        }
+        return prev - 100;
+      });
+    }, 100);
+
+    return () => {
+      if (climbTimerRef.current) { clearInterval(climbTimerRef.current); climbTimerRef.current = null; }
+    };
+  }, [yairRagePhase, climbCurrentStep]);
+
+  // Update knight position to follow climbing stones
+  useEffect(() => {
+    if (yairRagePhase !== 'climbing') return;
+    const stepIndex = Math.min(climbCurrentStep, CLIMB_STONE_LAYOUT.length - 1);
+    const stone = CLIMB_STONE_LAYOUT[stepIndex];
+    const sx = window.innerWidth * stone.x;
+    const sy = window.innerHeight * stone.y;
+    setKnightPosition({
+      x: sx - KNIGHT_WIDTH / 2,
+      y: sy - KNIGHT_VISUAL_Y_OFFSET - KNIGHT_HEIGHT + 60,
+    });
+  }, [yairRagePhase, climbCurrentStep]);
 
   // ===== PHASE 1 ATTACKS =====
 
@@ -1277,11 +1410,174 @@ function EldenRingGate() {
     });
   }
 
+  // ===== YAIR RAGE - WHATSAPP CALL + AIRFLOW CLIMBING =====
+
+  function triggerYairRage() {
+    yairRageActiveRef.current = true;
+    // Clear all active projectiles
+    rocketsRef.current = [];
+    lasersRef.current = [];
+    bossClonesRef.current = [];
+    rocketStormActiveRef.current = false;
+    // Generate randomized climbing key sequence
+    const shuffled = [...CLIMB_KEY_POOL].sort(() => Math.random() - 0.5);
+    climbKeysRef.current = shuffled.slice(0, CLIMB_STONE_LAYOUT.length);
+    climbFallingRef.current = false;
+    climbSlowPenaltyRef.current = false;
+    climbDropCountRef.current = 0;
+    setClimbDropCount(0);
+    setClimbCurrentStep(0);
+    // Play whatup.mp3 ringtone
+    const audio = new Audio(WHATUP_URL);
+    audio.loop = true;
+    whatupAudioRef.current = audio;
+    audio.play().catch(() => {});
+    setYairRagePhase('ringing');
+    console.log('📞 YAIR RAGE - Phone ringing!');
+  }
+
+  function handleAnswerCall() {
+    // Stop ringtone
+    if (whatupAudioRef.current) {
+      whatupAudioRef.current.pause();
+      whatupAudioRef.current = null;
+    }
+    // Start Yair speaking audio
+    const audio = new Audio(YAIR_URL);
+    yairAudioRef.current = audio;
+    audio.play().catch(() => {});
+    // When Yair finishes speaking → transition to climbing
+    audio.onended = () => {
+      yairAudioRef.current = null;
+      if (speakingIntervalRef.current) { clearInterval(speakingIntervalRef.current); speakingIntervalRef.current = null; }
+      // Start climbing music
+      const dahkar = new Audio(DAHKAR_URL);
+      dahkar.loop = true;
+      dahkarAudioRef.current = dahkar;
+      dahkar.play().catch(() => {});
+      setYairRagePhase('climbing');
+      setKnightAnimation('__WallHang.gif');
+      console.log('🧗 CLIMBING STARTED');
+    };
+    // Start speaking timer
+    setSpeakingElapsed(0);
+    speakingIntervalRef.current = setInterval(() => {
+      setSpeakingElapsed(prev => prev + 1);
+    }, 1000);
+    setYairRagePhase('speaking');
+    console.log('📱 Yair is speaking...');
+  }
+
+  function handleClimbFail() {
+    if (climbFallingRef.current) return;
+    climbFallingRef.current = true;
+    if (climbTimerRef.current) { clearInterval(climbTimerRef.current); climbTimerRef.current = null; }
+    setKnightAnimation('__Fall.gif');
+
+    climbDropCountRef.current++;
+    const drops = climbDropCountRef.current;
+    setClimbDropCount(drops);
+
+    if (drops === 2) {
+      climbSlowPenaltyRef.current = true;
+    }
+
+    if (drops >= 3) {
+      // 3rd drop = death
+      setTimeout(() => {
+        if (dahkarAudioRef.current) { dahkarAudioRef.current.pause(); dahkarAudioRef.current = null; }
+        setYairRagePhase(null);
+        yairRageActiveRef.current = false;
+        playerHealthRef.current = 0;
+        setPlayerHealth(0);
+        gameOverRef.current = true;
+        setGameOver(true);
+      }, 1500);
+    } else {
+      // Re-randomize and restart sequence after fall animation
+      setTimeout(() => {
+        const shuffled = [...CLIMB_KEY_POOL].sort(() => Math.random() - 0.5);
+        climbKeysRef.current = shuffled.slice(0, CLIMB_STONE_LAYOUT.length);
+        setClimbCurrentStep(0);
+        climbFallingRef.current = false;
+        setKnightAnimation('__WallHang.gif');
+      }, 1500);
+    }
+  }
+
+  function climbSuccess() {
+    climbFallingRef.current = true; // block further input
+    if (climbTimerRef.current) { clearInterval(climbTimerRef.current); climbTimerRef.current = null; }
+    if (dahkarAudioRef.current) { dahkarAudioRef.current.pause(); dahkarAudioRef.current = null; }
+    setYairRagePhase('success');
+    console.log('✅ GENERATOR ONLINE — resuming Phase 4!');
+
+    setTimeout(() => {
+      setYairRagePhase(null);
+      yairRageActiveRef.current = false;
+      // Apply slow penalty from left leg broken
+      if (climbSlowPenaltyRef.current) {
+        isSlowedRef.current = true;
+        slowEndTimeRef.current = Date.now() + 20000;
+      }
+      // Resume Phase 4 fighting — boss flies again (NOT knocked down)
+      bossStateRef.current = BOSS_FLYING;
+      bossStateTimerRef.current = Date.now();
+      phaseStartTimeRef.current = Date.now();
+      executedActionsRef.current = new Set();
+      bossClonesRef.current = [];
+      cloneShift();
+      rocketStormStart();
+      setKnightAnimation('__Idle.gif');
+    }, 2500);
+  }
+
+  function handlePhaseSwitch(phase) {
+    const phaseStartHP = { 1: 900, 2: 680, 3: 470, 4: 220 };
+    const newHP = phaseStartHP[phase];
+    bossHealthRef.current = newHP;
+    setBossHealth(newHP);
+    currentPhaseRef.current = phase;
+    phaseStartTimeRef.current = Date.now();
+    executedActionsRef.current = new Set();
+    bossStateRef.current = BOSS_FLYING;
+    bossStateTimerRef.current = Date.now();
+    // Clear all entities
+    rocketsRef.current = [];
+    lasersRef.current = [];
+    bossClonesRef.current = [];
+    droneRef.current = null;
+    ratRef.current = null;
+    rocketStormActiveRef.current = false;
+    giantCoinRef.current = null;
+    // Cancel yair rage if active
+    if (yairRageActiveRef.current) {
+      yairRageActiveRef.current = false;
+      if (whatupAudioRef.current) { whatupAudioRef.current.pause(); whatupAudioRef.current = null; }
+      if (yairAudioRef.current) { yairAudioRef.current.pause(); yairAudioRef.current = null; }
+      if (dahkarAudioRef.current) { dahkarAudioRef.current.pause(); dahkarAudioRef.current = null; }
+      if (speakingIntervalRef.current) { clearInterval(speakingIntervalRef.current); speakingIntervalRef.current = null; }
+      setYairRagePhase(null);
+    }
+    // Init phase
+    if (phase === 2) {
+      spawnDrone();
+      setCurrentMusic(new URL('../assets/audio/HAVA NAGILA (HARDTEKK).mp3', import.meta.url).href);
+    } else if (phase === 3) {
+      spawnRat();
+    } else if (phase === 4) {
+      cloneShift();
+      rocketStormStart();
+    }
+    console.log(`⚡ PHASE SWITCH TO ${phase}`);
+  }
+
   // Main Physics & Game Loop
   useEffect(() => {
     if (gameOver || victory) return;
 
     const gameLoop = setInterval(() => {
+      if (yairRageActiveRef.current) return; // Pause game loop during Yair Rage
       const now = Date.now();
       const platformY = canvasSize.height - PLATFORM_HEIGHT;
 
@@ -1422,16 +1718,19 @@ function EldenRingGate() {
                   case 'rocketRain':
                     if (event.knockdown) {
                       rocketRain();
-                      // Trigger knockdown
                       setTimeout(() => {
-                        bossStateRef.current = BOSS_KNOCKED;
-                        bossStateTimerRef.current = Date.now();
-                        knockedFrameRef.current = 0;
-                        // Clear phase 4 entities during knockdown
-                        bossClonesRef.current = [];
-                        rocketStormActiveRef.current = false;
-                        triggerScreenShake(8, 500);
-                        console.log('💥 BOSS KNOCKED!');
+                        if (currentPhaseRef.current === 4) {
+                          // Phase 4 knockdown triggers Yair Rage instead
+                          triggerYairRage();
+                        } else {
+                          bossStateRef.current = BOSS_KNOCKED;
+                          bossStateTimerRef.current = Date.now();
+                          knockedFrameRef.current = 0;
+                          bossClonesRef.current = [];
+                          rocketStormActiveRef.current = false;
+                          triggerScreenShake(8, 500);
+                          console.log('💥 BOSS KNOCKED!');
+                        }
                       }, 500);
                     } else {
                       rocketRain();
@@ -1842,9 +2141,13 @@ function EldenRingGate() {
           if (countdown !== null) {
             const elapsed = now - countdownStart;
             if (elapsed >= countdown) {
-              // EXPLODE!
+              // Spawn explosion visual regardless of hit
+              const expRw = rocket.small ? RAIN_ROCKET_WIDTH : (rocket.cheese ? P3_CHEESE_WIDTH : ROCKET_WIDTH);
+              const expRh = rocket.small ? RAIN_ROCKET_HEIGHT : (rocket.cheese ? P3_CHEESE_HEIGHT : ROCKET_HEIGHT);
+              explosionsRef.current.push({ x: x + expRw / 2, y: y + expRh / 2, startTime: now, radius: 120 });
+              triggerScreenShake(3, 150);
+              // EXPLODE! damage only if player is in range
               if (!isInvulnerableRef.current) {
-                // Check if player is in explosion radius
                 if (distToPlayer < 120) {
                   const newHP = Math.max(0, playerHealthRef.current - 15);
                   playerHealthRef.current = newHP;
@@ -2484,11 +2787,13 @@ function EldenRingGate() {
 
       const floatImg = floatPlatformImgRef.current;
       if (floatImg?.complete && floatImg.naturalWidth > 0) {
-        // Tile 4 copies of float image across width, fill floor to bottom
-        const tileCount = 4;
+        const tileCount = 3;
         const tileWidth = canvasSize.width / tileCount;
-        const floorTop = platformY - 15;
-        const floorHeight = canvasSize.height - floorTop;
+        // Start well above platformY to cover any gap where video doesn't reach
+        const floorTop = platformY -260;
+        const floorHeight = canvasSize.height+100;
+        // Solid dark fill covering everything below floorTop
+        // Tile float.png stretched to cover full platform area
         for (let i = 0; i < tileCount; i++) {
           ctx.drawImage(floatImg, i * tileWidth, floorTop, tileWidth, floorHeight);
         }
@@ -2624,10 +2929,6 @@ function EldenRingGate() {
         const ratHPPercent = ratWeakPointHPRef.current / P3_RAT_WEAK_POINT_HP;
         ctx.fillRect(rat.x, rat.y - 20, P3_RAT_WIDTH * ratHPPercent, 10);
 
-        ctx.font = 'bold 12px monospace';
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.fillText('RAT', rat.x + P3_RAT_WIDTH / 2, rat.y - 30);
       }
 
       // ===== PHASE 2: DRONE =====
@@ -2650,19 +2951,25 @@ function EldenRingGate() {
         const droneHPPercent = droneHealthRef.current / P2_DRONE_HP;
         ctx.fillRect(drone.x, drone.y - 15, P2_DRONE_WIDTH * droneHPPercent, 8);
 
-        // Target indicator
-        ctx.font = 'bold 10px monospace';
-        ctx.fillStyle = '#ff4444';
-        ctx.textAlign = 'center';
-        ctx.fillText('TARGET', drone.x + P2_DRONE_WIDTH / 2, drone.y - 20);
       }
 
-      // ===== DRONE BULLETS =====
+      // ===== DRONE BULLETS (curly.png projectiles) =====
       droneBulletsRef.current.forEach(bullet => {
-        ctx.fillStyle = '#ffff00';
-        ctx.beginPath();
-        ctx.arc(bullet.x, bullet.y, 8, 0, Math.PI * 2);
-        ctx.fill();
+        const curlyImg = curlyImgRef.current;
+        const sz = 44;
+        if (curlyImg?.complete && curlyImg.naturalWidth > 0) {
+          const angle = Math.atan2(bullet.vy, bullet.vx);
+          ctx.save();
+          ctx.translate(bullet.x, bullet.y);
+          ctx.rotate(angle);
+          ctx.drawImage(curlyImg, -sz / 2, -sz / 2, sz, sz);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = '#ffaa00';
+          ctx.beginPath();
+          ctx.arc(bullet.x, bullet.y, 8, 0, Math.PI * 2);
+          ctx.fill();
+        }
       });
 
       // ===== FIRE ZONES =====
@@ -2761,12 +3068,6 @@ function EldenRingGate() {
           }
 
           // Real boss glow
-          if (clone.isReal) {
-            ctx.strokeStyle = '#ffff44';
-            ctx.lineWidth = 5;
-            ctx.strokeRect(clone.x, clone.y, BOSS_WIDTH, BOSS_HEIGHT);
-          }
-
           ctx.restore();
         });
       } else {
@@ -2802,15 +3103,6 @@ function EldenRingGate() {
             ctx.fillText('YAIR', bossX + BOSS_WIDTH / 2, bossY + BOSS_HEIGHT / 2);
           }
 
-          // Immunity indicator while flying
-          if (bossState === BOSS_FLYING && currentPhaseRef.current !== 4) {
-            ctx.font = 'bold 14px monospace';
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 3;
-            ctx.strokeText('[ IMMUNE ]', bossX + BOSS_WIDTH / 2, bossY - 10);
-            ctx.fillStyle = '#ffff44';
-            ctx.fillText('[ IMMUNE ]', bossX + BOSS_WIDTH / 2, bossY - 10);
-          }
         }
       }
 
@@ -2820,27 +3112,21 @@ function EldenRingGate() {
         const rw = rocket.small ? RAIN_ROCKET_WIDTH : (rocket.cheese ? P3_CHEESE_WIDTH : ROCKET_WIDTH);
         const rh = rocket.small ? RAIN_ROCKET_HEIGHT : (rocket.cheese ? P3_CHEESE_HEIGHT : ROCKET_HEIGHT);
 
-        // Countdown warning circle for tracking rockets
+        // Countdown number above tracking rockets
         if (rocket.tracking && rocket.countdown !== null) {
           const timeLeft = rocket.countdown - (now - rocket.countdownStart);
-          const radius = 60 + (40 * (1 - timeLeft / ROCKET_COUNTDOWN_TIME));
-
-          ctx.save();
-          ctx.globalAlpha = 0.4 + 0.3 * Math.sin(now * 0.02);
-          ctx.strokeStyle = timeLeft < 500 ? '#ff2222' : '#ffaa00';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.arc(rocket.x + rw / 2, rocket.y + rh / 2, radius, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
-
-          // Countdown text
-          ctx.font = 'bold 18px monospace';
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 3;
-          ctx.strokeText(`${Math.ceil(timeLeft / 1000)}`, rocket.x + rw / 2, rocket.y - 15);
-          ctx.fillStyle = '#ff2222';
-          ctx.fillText(`${Math.ceil(timeLeft / 1000)}`, rocket.x + rw / 2, rocket.y - 15);
+          if (timeLeft > 0) {
+            const secs = Math.ceil(timeLeft / 1000);
+            ctx.save();
+            ctx.font = `bold ${timeLeft < 500 ? 22 : 18}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeText(secs, rocket.x + rw / 2, rocket.y - 12);
+            ctx.fillStyle = timeLeft < 500 ? '#ff2222' : '#ffaa00';
+            ctx.fillText(secs, rocket.x + rw / 2, rocket.y - 12);
+            ctx.restore();
+          }
         }
 
         // Draw projectile based on type
@@ -2913,6 +3199,33 @@ function EldenRingGate() {
         }
       }
 
+      // ===== EXPLOSIONS =====
+      const EXPLOSION_DURATION = 500;
+      explosionsRef.current = explosionsRef.current.filter(exp => now - exp.startTime < EXPLOSION_DURATION);
+      for (const exp of explosionsRef.current) {
+        const t = (now - exp.startTime) / EXPLOSION_DURATION; // 0→1
+        const r = exp.radius * t;
+        ctx.save();
+        // Outer shockwave ring
+        ctx.globalAlpha = (1 - t) * 0.7;
+        ctx.strokeStyle = `rgb(255, ${Math.floor(180 * (1 - t))}, 0)`;
+        ctx.lineWidth = 4 * (1 - t) + 1;
+        ctx.beginPath();
+        ctx.arc(exp.x, exp.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        // Inner fireball fill
+        ctx.globalAlpha = (1 - t) * 0.5;
+        const grad = ctx.createRadialGradient(exp.x, exp.y, 0, exp.x, exp.y, r * 0.7);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.3, '#ff8800');
+        grad.addColorStop(1, 'rgba(255,30,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(exp.x, exp.y, r * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
       // ===== GIANT COIN =====
       if (giantCoinRef.current) {
         const gc = giantCoinRef.current;
@@ -2928,19 +3241,7 @@ function EldenRingGate() {
           ctx.arc(0, 0, gc.size / 2, 0, Math.PI * 2);
           ctx.fill();
         }
-        // Glow effect
-        ctx.globalAlpha = 0.3 + Math.sin(now * 0.01) * 0.2;
-        ctx.strokeStyle = '#ffff44';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(0, 0, gc.size / 2 + 8, 0, Math.PI * 2);
-        ctx.stroke();
         ctx.restore();
-        // Parry counter
-        ctx.font = 'bold 16px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#ffff00';
-        ctx.fillText(`${gc.parryHits}/3`, gc.x + gc.size / 2, gc.y - 10);
       }
 
       // ===== RETURN COINS (parried coins flying back at boss) =====
@@ -2979,13 +3280,6 @@ function EldenRingGate() {
           ctx.arc(0, 0, soap.size / 2, 0, Math.PI * 2);
           ctx.fill();
         }
-        // Bubble trail
-        ctx.globalAlpha = 0.4;
-        ctx.strokeStyle = '#aaeeff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, soap.size / 2 + 6, 0, Math.PI * 2);
-        ctx.stroke();
         ctx.restore();
       });
 
@@ -3275,10 +3569,6 @@ function EldenRingGate() {
         ctx.stroke();
         ctx.restore();
         // RAGE text
-        ctx.font = 'bold 16px monospace';
-        ctx.fillStyle = '#ff2200';
-        ctx.textAlign = 'center';
-        ctx.fillText('RAGE!', ratRef.current.x + P3_RAT_WIDTH / 2, ratRef.current.y - 40);
       }
 
       // ===== PARRY FLASH on knight =====
@@ -3368,96 +3658,8 @@ function EldenRingGate() {
         ctx.restore();
       }
 
-      // ===== DEBUG HITBOX VISUALIZATION =====
-      if (showHitboxesRef.current) {
-        ctx.save();
-        ctx.setLineDash([4, 4]);
-
-        // Knight hitbox (green)
-        const knightHB = getKnightHitbox(knightPosRef.current, facingDirRef.current);
-        ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(knightHB.left, knightHB.top, knightHB.right - knightHB.left, knightHB.bottom - knightHB.top);
-
-        // Knight full sprite bounds (dim green)
-        ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(knightPosRef.current.x, knightPosRef.current.y + KNIGHT_VISUAL_Y_OFFSET, KNIGHT_WIDTH, KNIGHT_HEIGHT);
-
-        // Rocket/projectile hitboxes (red)
-        ctx.strokeStyle = '#ff0000';
-        ctx.lineWidth = 1;
-        for (const rocket of rocketsRef.current) {
-          const rw = rocket.small ? RAIN_ROCKET_WIDTH : (rocket.cheese ? P3_CHEESE_WIDTH : ROCKET_WIDTH);
-          const rh = rocket.small ? RAIN_ROCKET_HEIGHT : (rocket.cheese ? P3_CHEESE_HEIGHT : ROCKET_HEIGHT);
-          const hitboxInsetX = rw * (1 - HITBOX_SCALE) / 2;
-          const hitboxInsetY = rh * (1 - HITBOX_SCALE) / 2;
-          ctx.strokeRect(rocket.x + hitboxInsetX, rocket.y + hitboxInsetY, rw * HITBOX_SCALE, rh * HITBOX_SCALE);
-        }
-
-        // Giant coin hitbox (orange)
-        if (giantCoinRef.current) {
-          const gc = giantCoinRef.current;
-          ctx.strokeStyle = '#ff8800';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(gc.x, gc.y, gc.size, gc.size);
-        }
-
-        // Boss hitbox (magenta)
-        if (bossStateRef.current !== BOSS_DEAD) {
-          ctx.strokeStyle = '#ff00ff';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(bossPosRef.current.x, bossPosRef.current.y, BOSS_WIDTH, BOSS_HEIGHT);
-        }
-
-        // Drone hitbox (cyan)
-        if (droneRef.current) {
-          ctx.strokeStyle = '#00ffff';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(droneRef.current.x, droneRef.current.y, P2_DRONE_WIDTH, P2_DRONE_HEIGHT);
-        }
-
-        // Rat hitbox (yellow)
-        if (ratRef.current && !ratRef.current.burrowed) {
-          ctx.strokeStyle = '#ffff00';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(ratRef.current.x, ratRef.current.y, P3_RAT_WIDTH, P3_RAT_HEIGHT);
-        }
-
-        // Drone bullets (cyan dots)
-        ctx.strokeStyle = '#00ffff';
-        ctx.lineWidth = 1;
-        for (const bullet of droneBulletsRef.current) {
-          ctx.strokeRect(bullet.x - 5, bullet.y - 5, 10, 10);
-        }
-
-        // Soap projectiles (pink)
-        ctx.strokeStyle = '#ff88ff';
-        ctx.lineWidth = 1;
-        for (const soap of soapProjectilesRef.current) {
-          ctx.strokeRect(soap.x - soap.size / 2, soap.y - soap.size / 2, soap.size, soap.size);
-        }
-
-        // Mini rats (yellow small)
-        ctx.strokeStyle = '#ffff00';
-        ctx.lineWidth = 1;
-        for (const mr of miniRatsRef.current) {
-          ctx.strokeRect(mr.x - 15, mr.y - 15, 30, 30);
-        }
-
-        // Cheese traps (orange small)
-        ctx.strokeStyle = '#ff8800';
-        ctx.lineWidth = 1;
-        for (const trap of cheeseTrapsRef.current) {
-          ctx.strokeRect(trap.x, trap.y, trap.size, trap.size);
-        }
-
-        ctx.setLineDash([]);
-        ctx.restore();
-      }
-
       // ===== UI - PLAYER HEALTH BAR =====
-      const phBarW = 300, phBarH = 24, phBarX = 20, phBarY = 18;
+      const phBarW = 180, phBarH = 18, phBarX = 20, phBarY = 22;
       const playerHealthPercent = playerHealthRef.current / 100;
       const phFill = phBarW * playerHealthPercent;
 
@@ -3582,11 +3784,11 @@ function EldenRingGate() {
       ctx.fillText('DASH', phBarX + phBarW + 12 + dashBarW / 2, phBarY + 16);
       ctx.restore();
 
-      // ===== UI - BOSS HEALTH BAR (Bottom of screen, cinematic style) =====
-      const bossHealthBarWidth = Math.min(700, canvasSize.width - 100);
+      // ===== UI - BOSS HEALTH BAR (centered, same row as player health) =====
       const bossHealthBarHeight = 28;
+      const bossHealthBarWidth = Math.min(620, canvasSize.width - 420);
       const bossHealthBarX = (canvasSize.width - bossHealthBarWidth) / 2;
-      const bossHealthBarY = 70;
+      const bossHealthBarY = phBarY + (phBarH - bossHealthBarHeight) / 2;
 
       const bossHealthPercent = bossHealthRef.current / BOSS_MAX_HEALTH;
       const bossFillWidth = bossHealthBarWidth * bossHealthPercent;
@@ -3657,52 +3859,15 @@ function EldenRingGate() {
       ctx.roundRect(bossHealthBarX, bossHealthBarY, bossHealthBarWidth, bossHealthBarHeight, 4);
       ctx.stroke();
 
-      // Boss name above bar
-      ctx.font = 'bold 16px monospace';
-      ctx.textAlign = 'center';
-      ctx.shadowColor = '#000';
-      ctx.shadowBlur = 6;
-      ctx.fillStyle = '#cc4444';
-      ctx.fillText('YAIR, LORD OF ASH', bossHealthBarX + bossHealthBarWidth / 2, bossHealthBarY - 16);
-
-      // HP numbers on right
-      ctx.font = 'bold 12px monospace';
+      // HP numbers inside bar
+      ctx.font = 'bold 11px monospace';
       ctx.textAlign = 'right';
       ctx.shadowBlur = 0;
-      ctx.fillStyle = '#ff6666';
-      ctx.fillText(`${bossHealthRef.current} / ${BOSS_MAX_HEALTH}`, bossHealthBarX + bossHealthBarWidth, bossHealthBarY - 3);
+      ctx.fillStyle = 'rgba(255,180,180,0.9)';
+      ctx.fillText(`${bossHealthRef.current} / ${BOSS_MAX_HEALTH}`, bossHealthBarX + bossHealthBarWidth - 6, bossHealthBarY + bossHealthBarHeight / 2 + 4);
       ctx.restore();
 
-      // Phase & Boss state indicator (top center, minimal)
-      const currentPhase = currentPhaseRef.current;
       const bossState = bossStateRef.current;
-      const phaseNames = ['Rocket Shower', 'Aerial Pressure', 'Rat Chaos', 'Bullet Hell'];
-      const phaseColors = ['#ffff44', '#ffaa33', '#ff7722', '#ff2222'];
-
-      ctx.save();
-      ctx.font = 'bold 14px monospace';
-      ctx.textAlign = 'center';
-      ctx.shadowColor = '#000';
-      ctx.shadowBlur = 4;
-      ctx.fillStyle = phaseColors[currentPhase - 1];
-      ctx.fillText(`PHASE ${currentPhase} - ${phaseNames[currentPhase - 1]}`, canvasSize.width / 2, canvasSize.height - PLATFORM_HEIGHT - 90);
-      ctx.shadowBlur = 0;
-
-      // Boss state
-      if (bossState === BOSS_KNOCKED) {
-        const flash = Math.sin(now * 0.01) > 0;
-        ctx.font = 'bold 24px monospace';
-        ctx.fillStyle = flash ? '#44ff44' : '#22aa22';
-        ctx.shadowColor = '#00ff00';
-        ctx.shadowBlur = flash ? 15 : 5;
-        ctx.fillText('ATTACK NOW!', canvasSize.width / 2, canvasSize.height / 2 - 50);
-        ctx.shadowBlur = 0;
-      } else if (bossState === BOSS_RECOVERING) {
-        ctx.font = 'bold 16px monospace';
-        ctx.fillStyle = '#ffff44';
-        ctx.fillText('BOSS RECOVERING...', canvasSize.width / 2, canvasSize.height / 2 - 50);
-      }
-      ctx.restore();
 
       // ===== DAMAGE FLASH =====
       if (now < damageFlashRef.current) {
@@ -3766,12 +3931,15 @@ function EldenRingGate() {
   return (
     <div className="eldenring-container">
 
-      <GateMusic key={currentMusic} src={currentMusic} />
+      {/* Game music — hidden during Yair Rage */}
+      {!yairRagePhase && (
+        <GateMusic key={currentMusic} src={currentMusic} startTime={currentMusic.includes('hava nagila') ? 6 : 0} />
+      )}
 
       {/* Title */}
       <div className="game-header">
-        <h1 className="game-title glitch" data-text="THE TARNISHED VS. YAIR, LORD OF ASH">
-          THE TARNISHED VS. YAIR, LORD OF ASH
+        <h1 className="game-title glitch" data-text="THE TARNISHED VS. YAIR TAITO, LORD OF ASH">
+          THE TARNISHED VS. YAIR TAITO, LORD OF ASH
         </h1>
       </div>
 
@@ -3811,17 +3979,6 @@ function EldenRingGate() {
         }}
       />
 
-      {/* Controls Hint */}
-      <div className="controls-hint">
-        <span>A/D - Move | Space - Jump (2x) | SHIFT - Dash | F / Right Click - Parry</span>
-        <span>Left Click - Attack | F / Right Click - Parry coins back at boss!</span>
-        <span style={{ fontSize: '0.85em', color: '#ffff44' }}>P1: Dodge rain gaps!</span>
-        <span style={{ fontSize: '0.85em', color: '#ffaa33' }}>P2: Destroy drone!</span>
-        <span style={{ fontSize: '0.85em', color: '#ff7722' }}>P3: Defeat the rat!</span>
-        <span style={{ fontSize: '0.85em', color: '#ff2222' }}>P4: Find real boss!</span>
-        <span style={{ fontSize: '0.8em', color: '#44ff44' }}>4 Phases Total</span>
-      </div>
-
       {/* Game Over Screen */}
       {gameOver && (
         <div className="game-over-overlay">
@@ -3851,6 +4008,374 @@ function EldenRingGate() {
             >
               PLAY AGAIN
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== YAIR RAGE - WHATSAPP CALL SCREEN ===== */}
+      {yairRagePhase === 'ringing' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 3000,
+          background: 'linear-gradient(160deg, #075E54 0%, #128C7E 40%, #1a1a2e 100%)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: '28px', fontFamily: 'sans-serif',
+        }}>
+          <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '1rem', letterSpacing: 2 }}>
+            WHATSAPP — INCOMING CALL
+          </div>
+          <div style={{
+            width: 110, height: 110, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #ff6b35, #c0392b)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '3.5rem',
+            border: '4px solid rgba(255,255,255,0.25)',
+            boxShadow: '0 0 40px rgba(192,57,43,0.6), 0 0 80px rgba(192,57,43,0.3)',
+            animation: 'pulse 1s ease-in-out infinite',
+          }}>
+            😈
+          </div>
+          <div style={{ color: '#fff', fontSize: '2.2rem', fontWeight: 'bold', textShadow: '0 2px 12px rgba(0,0,0,0.6)' }}>
+            Sigma Boss
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.95rem' }}>
+            WhatsApp Audio Call
+          </div>
+          <div style={{ display: 'flex', gap: '60px', alignItems: 'center', marginTop: 20 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={handleAnswerCall}
+                style={{
+                  width: 72, height: 72, borderRadius: '50%',
+                  background: '#25D366', border: 'none', fontSize: '2.2rem',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 0 25px rgba(37,211,102,0.8), 0 0 50px rgba(37,211,102,0.4)',
+                  transition: 'transform 0.1s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                📞
+              </button>
+              <span style={{ color: '#fff', fontSize: '0.85rem' }}>Answer</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== YAIR RAGE - SPEAKING SCREEN (yair.mp3 playing) ===== */}
+      {yairRagePhase === 'speaking' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 3000,
+          background: 'linear-gradient(160deg, #075E54 0%, #0a1a18 60%, #020d0c 100%)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: '22px', fontFamily: 'sans-serif',
+        }}>
+          {/* Status bar */}
+          <div style={{ color: '#25D366', fontSize: '1rem', letterSpacing: 2, fontWeight: 600 }}>
+            WhatsApp
+          </div>
+
+          {/* Avatar */}
+          <div style={{
+            width: 110, height: 110, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #ff6b35, #c0392b)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '3.5rem',
+            border: '3px solid rgba(255,255,255,0.15)',
+            boxShadow: '0 0 0 8px rgba(37,211,102,0.08), 0 0 40px rgba(37,211,102,0.2)',
+          }}>
+            😈
+          </div>
+
+          {/* Caller name */}
+          <div style={{ color: '#fff', fontSize: '2rem', fontWeight: 'bold', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
+            Sigma Boss
+          </div>
+
+          {/* Call timer */}
+          <div style={{
+            color: '#25D366', fontSize: '1.4rem', fontWeight: 'bold',
+            fontFamily: 'monospace', letterSpacing: 3,
+            textShadow: '0 0 10px rgba(37,211,102,0.6)',
+          }}>
+            {String(Math.floor(speakingElapsed / 60)).padStart(2, '0')}:{String(speakingElapsed % 60).padStart(2, '0')}
+          </div>
+
+          {/* Speaking waveform animation */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, height: 40 }}>
+            {[0.4, 0.7, 1.0, 0.8, 0.5, 0.9, 0.6, 1.0, 0.7, 0.4].map((h, i) => (
+              <div key={i} style={{
+                width: 4, borderRadius: 2,
+                background: '#25D366',
+                height: `${h * 36}px`,
+                animation: `speakWave 0.${6 + i % 4}s ease-in-out infinite alternate`,
+                animationDelay: `${i * 0.08}s`,
+                opacity: 0.8,
+              }} />
+            ))}
+          </div>
+
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
+            Yair is speaking...
+          </div>
+
+          {/* Inline keyframe for the wave bars */}
+          <style>{`
+            @keyframes speakWave {
+              from { transform: scaleY(0.3); opacity: 0.5; }
+              to   { transform: scaleY(1.0); opacity: 1.0; }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* ===== YAIR RAGE - CLIMBING SCREEN ===== */}
+      {yairRagePhase === 'climbing' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 3000, overflow: 'hidden' }}>
+          {/* Airflow background — full screen */}
+          <img
+            src={AIRFLOW_PAUZED_URL}
+            alt="Apache Airflow DAGs"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+          {/* Dark overlay for contrast */}
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
+
+          {/* Header bar */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, padding: '10px 20px',
+            background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            borderBottom: '2px solid rgba(255,120,0,0.4)',
+          }}>
+            <div style={{ color: '#ff8800', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1.1rem' }}>
+              ⚡ TRIGGER: Continue_Phase_4_Fighting — CLIMB TO THE ▶ BUTTON
+            </div>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              {climbDropCount >= 1 && (
+                <span style={{ color: '#ff4444', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                  {climbDropCount === 1 ? '✋ RIGHT HAND BROKEN' : '✋ RIGHT HAND  🦵 LEFT LEG BROKEN'}
+                </span>
+              )}
+              <span style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace', fontSize: '0.9rem' }}>
+                ❤️ {3 - climbDropCount} attempt{3 - climbDropCount !== 1 ? 's' : ''} left
+              </span>
+              <span style={{ color: '#aaa', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                {climbCurrentStep} / {CLIMB_STONE_LAYOUT.length} keys
+              </span>
+            </div>
+          </div>
+
+          {/* Connecting lines between stones (SVG layer) */}
+          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+            {CLIMB_STONE_LAYOUT.slice(0, -1).map((stone, i) => {
+              const x1 = window.innerWidth * stone.x;
+              const y1 = window.innerHeight * stone.y;
+              const x2 = window.innerWidth * CLIMB_STONE_LAYOUT[i + 1].x;
+              const y2 = window.innerHeight * CLIMB_STONE_LAYOUT[i + 1].y;
+              const done = i < climbCurrentStep;
+              return (
+                <line
+                  key={i}
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke={done ? 'rgba(68,255,136,0.7)' : 'rgba(255,255,255,0.15)'}
+                  strokeWidth={done ? 3 : 2}
+                  strokeDasharray={done ? '0' : '10 6'}
+                />
+              );
+            })}
+          </svg>
+
+          {/* Climbing wall holds */}
+          {CLIMB_STONE_LAYOUT.map((stone, i) => {
+            const sz = CLIMB_HOLD_SIZES[i];
+            const sx = window.innerWidth * stone.x;
+            const sy = window.innerHeight * stone.y;
+            const isCompleted = i < climbCurrentStep;
+            const isCurrent = i === climbCurrentStep;
+            const isFuture = i > climbCurrentStep;
+            const isDestination = i === CLIMB_STONE_LAYOUT.length - 1;
+            const baseColor = CLIMB_HOLD_COLORS[i];
+            const shape = CLIMB_HOLD_SHAPES[i];
+
+            if (isDestination) {
+              return (
+                <div key={i} style={{
+                  position: 'absolute', left: sx - sz / 2, top: sy - sz / 2,
+                  width: sz, height: sz,
+                  background: isCompleted
+                    ? 'linear-gradient(135deg, #22ff88, #00cc55)'
+                    : `radial-gradient(circle at 35% 35%, #22ee88, #0a7a44)`,
+                  borderRadius: '50%',
+                  border: `3px solid ${isCurrent ? '#fff' : 'rgba(255,255,255,0.4)'}`,
+                  boxShadow: isCurrent
+                    ? '0 0 28px rgba(34,255,136,0.95), 0 0 56px rgba(34,255,136,0.5), 0 6px 0 rgba(0,0,0,0.5)'
+                    : '0 4px 0 rgba(0,0,0,0.5)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                  opacity: isFuture && !isCurrent ? 0.5 : 1,
+                  transform: isCurrent ? 'scale(1.25)' : 'scale(1)',
+                  transition: 'all 0.2s ease',
+                  zIndex: 10,
+                  animation: isCurrent ? 'pulse 0.7s ease-in-out infinite' : 'none',
+                }}>
+                  <span style={{ fontSize: isCompleted ? '1.6rem' : '1.8rem', lineHeight: 1 }}>
+                    {isCompleted ? '✅' : '🔘'}
+                  </span>
+                  {!isCompleted && (
+                    <span style={{ fontSize: '0.6rem', color: '#fff', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                      {(climbKeysRef.current[i] || '').toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              );
+            }
+
+            // Climbing wall hold — varied color, size, shape
+            return (
+              <div key={i} style={{
+                position: 'absolute',
+                left: sx - sz / 2,
+                top: sy - sz / 2,
+                width: sz,
+                height: sz,
+                background: isCompleted
+                  ? `radial-gradient(circle at 35% 35%, #88ffaa, #229944)`
+                  : isCurrent
+                  ? `radial-gradient(circle at 35% 35%, #fff8aa, #e8b800)`
+                  : `radial-gradient(circle at 35% 35%, ${baseColor}ee, ${baseColor}88)`,
+                borderRadius: shape,
+                border: isCurrent
+                  ? '3px solid rgba(255,255,255,0.9)'
+                  : isCompleted
+                  ? '2px solid rgba(34,200,80,0.7)'
+                  : `2px solid ${baseColor}`,
+                boxShadow: isCurrent
+                  ? `0 0 22px rgba(255,220,0,0.9), 0 0 44px rgba(255,200,0,0.4), 0 4px 0 rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.3)`
+                  : isCompleted
+                  ? '0 0 10px rgba(68,200,100,0.5), 0 3px 0 rgba(0,0,0,0.5)'
+                  : `0 4px 0 rgba(0,0,0,0.55), inset 0 2px 4px rgba(255,255,255,0.2)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'monospace', fontWeight: 'bold',
+                fontSize: isCurrent ? `${Math.round(sz * 0.38)}px` : `${Math.round(sz * 0.32)}px`,
+                color: isCompleted ? '#003d15' : isCurrent ? '#4a3000' : '#fff',
+                textShadow: isCurrent ? '0 1px 3px rgba(0,0,0,0.5)' : '0 1px 2px rgba(0,0,0,0.7)',
+                userSelect: 'none',
+                opacity: isFuture ? 0.55 : 1,
+                transform: isCurrent ? 'scale(1.2) translateY(-3px)' : 'scale(1)',
+                transition: 'all 0.15s ease',
+                zIndex: 10,
+              }}>
+                {isCompleted ? '✓' : (climbKeysRef.current[i] || '').toUpperCase()}
+              </div>
+            );
+          })}
+
+          {/* Knight sprite on the current climbing hold */}
+          {(() => {
+            const stepIndex = Math.min(climbCurrentStep, CLIMB_STONE_LAYOUT.length - 1);
+            const stone = CLIMB_STONE_LAYOUT[stepIndex];
+            const sx = window.innerWidth * stone.x;
+            const sy = window.innerHeight * stone.y;
+            return (
+              <img
+                src={getKnightAnimation(knightAnimation)}
+                alt="Knight"
+                style={{
+                  position: 'absolute',
+                  left: sx - KNIGHT_WIDTH / 2,
+                  top: sy - KNIGHT_HEIGHT + 10,
+                  width: KNIGHT_WIDTH,
+                  height: KNIGHT_HEIGHT,
+                  imageRendering: 'pixelated',
+                  transform: 'scaleX(-1)',
+                  zIndex: 20,
+                  pointerEvents: 'none',
+                  filter: climbFallingRef.current ? 'drop-shadow(0 0 10px #ff4444)' : 'none',
+                }}
+              />
+            );
+          })()}
+
+          {/* Per-key countdown timer bar — below current stone */}
+          {(() => {
+            if (climbCurrentStep >= CLIMB_STONE_LAYOUT.length) return null;
+            const stone = CLIMB_STONE_LAYOUT[climbCurrentStep];
+            const sx = window.innerWidth * stone.x;
+            const sy = window.innerHeight * stone.y;
+            const timerPct = climbKeyTimeLeft / CLIMB_KEY_TIMER_MS;
+            const barColor = timerPct > 0.5 ? '#44ff88' : timerPct > 0.25 ? '#ffcc00' : '#ff3322';
+            return (
+              <div style={{
+                position: 'absolute', left: sx - 36, top: sy + 36,
+                width: 72, height: 5, background: 'rgba(0,0,0,0.5)', borderRadius: 3,
+              }}>
+                <div style={{
+                  height: '100%', width: `${timerPct * 100}%`,
+                  background: barColor, borderRadius: 3,
+                  boxShadow: `0 0 6px ${barColor}`,
+                  transition: 'background 0.3s',
+                }} />
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ===== YAIR RAGE - SUCCESS SCREEN ===== */}
+      {yairRagePhase === 'success' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 3000, overflow: 'hidden' }}>
+          <img
+            src={AIRFLOW_UNPAUZED_URL}
+            alt="Airflow Generator (Running)"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div style={{
+              color: '#44ff88', fontFamily: 'monospace', fontWeight: 'bold',
+              fontSize: '2.5rem', textAlign: 'center',
+              textShadow: '0 0 30px rgba(68,255,136,0.9), 0 0 60px rgba(68,255,136,0.5)',
+              animation: 'pulse 0.5s ease-in-out infinite',
+            }}>
+              GENERATOR ONLINE!<br />
+              <span style={{ fontSize: '1.2rem', color: '#ffee55' }}>
+                Resuming battle...
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== PHASE SWITCHER (dev testing) ===== */}
+      {!gameOver && !victory && !yairRagePhase && (
+        <div style={{
+          position: 'fixed', bottom: 20, right: 20, zIndex: 200,
+          display: 'flex', gap: 8, flexDirection: 'column', alignItems: 'flex-end',
+        }}>
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem', fontFamily: 'monospace', marginBottom: 2 }}>
+            DEV: PHASE
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[1, 2, 3, 4].map(p => (
+              <button
+                key={p}
+                onClick={() => handlePhaseSwitch(p)}
+                style={{
+                  width: 36, height: 36,
+                  background: currentPhaseRef.current === p
+                    ? 'linear-gradient(135deg, #ff8800, #cc5500)'
+                    : 'linear-gradient(135deg, #2a2c2f, #1a1c1f)',
+                  border: `2px solid ${currentPhaseRef.current === p ? '#ffaa44' : '#555'}`,
+                  borderRadius: 4, color: '#fff', fontWeight: 'bold',
+                  fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'monospace',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {p}
+              </button>
+            ))}
           </div>
         </div>
       )}

@@ -6,13 +6,22 @@ import LastHarvestPuzzle from './pages/LastHarvestPuzzle';
 import LibraryGate from './pages/LibraryGate';
 import EldenRingGate from './pages/EldenRingGate';
 import Preloader from './components/Preloader';
+import Login from './pages/Login';
 import './App.css';
 
 function App() {
+  const [authed, setAuthed] = useState(() => {
+    return localStorage.getItem('creative_hub_auth') === 'true';
+  });
+
   // Check if assets were already loaded in this session
   const [assetsLoaded, setAssetsLoaded] = useState(() => {
     return sessionStorage.getItem('assetsLoaded') === 'true';
   });
+
+  if (!authed) {
+    return <Login onLogin={() => setAuthed(true)} />;
+  }
 
   // Enable audio autoplay on first load
   useEffect(() => {
