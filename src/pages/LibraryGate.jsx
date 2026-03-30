@@ -93,7 +93,7 @@ const DISTRACTOR_WORDS = [
   'prism', 'crystal', 'jew', 'nightfall', 'benjamin', 'netanyahu',
   'starlight', 'sigma', 'sunflare', 'retard', 'tidal', 'deepwave',
   'skylark', 'stormfront', 'rainfall', 'thunder', 'lightning', 'frost',
-  'glacier', 'summit', 'valley', 'esrael', 'meadow', 'river',
+  'glacier', 'summit', 'valley', 'israel', 'meadow', 'river',
   'ocean', 'desert', 'island', 'volcano', 'bakhmaro', 'cliff',
   'meow', 'gust', 'cyclone', 'tempest', 'yuran', 'mtis',];
 
