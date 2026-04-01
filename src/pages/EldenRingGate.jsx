@@ -4,11 +4,11 @@ import './EldenRingGate.css';
 
 const getKnightAnimation = (filename) => new URL(`../assets/eldenring/knight/Colour1/NoOutline/120x80_gifs/${filename}`, import.meta.url).href;
 
-// Yair Rage - Airflow assets
+// Ilarion Rage - Airflow assets
 const AIRFLOW_PAUZED_URL = new URL('../assets/eldenring/pauzed-airflow.png', import.meta.url).href;
 const AIRFLOW_UNPAUZED_URL = new URL('../assets/eldenring/unpauzed-airflow.png', import.meta.url).href;
 const WHATUP_URL = new URL('../assets/audio/whatup.mp3', import.meta.url).href;
-const YAIR_URL = new URL('../assets/audio/yair.mp3', import.meta.url).href;
+const ILARION_URL = new URL('../assets/audio/yair.mp3', import.meta.url).href;
 const DAHKAR_URL = new URL('../assets/audio/dahkar.mp3', import.meta.url).href;
 // Climbing key pool (15 distinct keys)
 const CLIMB_KEY_POOL = ['a', 'b', 'c', 'd', 'f', 'g', 'r', 'e', 's', 'q', 'w', 'z', 'x', 'v', 't'];
@@ -186,10 +186,12 @@ const PHASE_TIMELINES = {
     { time: 4, action: 'cloneShift' },
     { time: 5, action: 'giantCoin' },
     { time: 6, action: 'laserGrid' },
+    { time: 7, action: 'sweepLasers' },
     { time: 8, action: 'cloneShift' },
     { time: 10, action: 'trackingSplit' },
     { time: 12, action: 'laserGrid' },
     { time: 13, action: 'soapThrow' },
+    { time: 15, action: 'sweepLasers' },
     { time: 14, action: 'cloneShift' },
     { time: 16, action: 'coinBarrage' },
     { time: 18, action: 'trackingSplit' },
@@ -238,9 +240,11 @@ function EldenRingGate() {
   const [victory, setVictory] = useState(false);
   const [currentMusic, setCurrentMusic] = useState(new URL('../assets/audio/hava nagila.mp3', import.meta.url).href);
 
-  // Yair Rage state
-  const [yairRagePhase, setYairRagePhase] = useState(null); // null | 'ringing' | 'speaking' | 'climbing' | 'success'
+  // Ilarion Rage state
+  const [ilarionRagePhase, setIlarionRagePhase] = useState(null); // null | 'ringing' | 'speaking' | 'climbing' | 'success'
   const [climbDropCount, setClimbDropCount] = useState(0);
+  const [showInjuryMessage, setShowInjuryMessage] = useState(false);
+  const injuryMessageTimerRef = useRef(null);
   const [climbCurrentStep, setClimbCurrentStep] = useState(0);
   const [climbKeyTimeLeft, setClimbKeyTimeLeft] = useState(CLIMB_KEY_TIMER_MS);
   const [lastStoneHits, setLastStoneHits] = useState(0);
@@ -394,15 +398,15 @@ function EldenRingGate() {
   const stylePointsRef = useRef(0);
   const styleTextRef = useRef([]);
 
-  // Yair Rage refs
-  const yairRageActiveRef = useRef(false);
+  // Ilarion Rage refs
+  const ilarionRageActiveRef = useRef(false);
   const climbKeysRef = useRef([]);
   const climbFallingRef = useRef(false);
   const climbSlowPenaltyRef = useRef(false);
   const climbDropCountRef = useRef(0);
   const lastStoneHitsRef = useRef(0);
   const whatupAudioRef = useRef(null);
-  const yairAudioRef = useRef(null);
+  const ilarionAudioRef = useRef(null);
   const dahkarAudioRef = useRef(null);
   const climbTimerRef = useRef(null);
   const speakingIntervalRef = useRef(null);
@@ -589,11 +593,27 @@ function EldenRingGate() {
           );
 
           if (distance < 500) {
-            const newHP = Math.max(0, bossHealthRef.current - 50);
-            bossHealthRef.current = newHP;
-            setBossHealth(newHP);
-            triggerScreenShake(4, 200);
-            console.log(`⚔️ Boss hit! HP: ${newHP}`);
+            // Phase gate: player can only lower boss HP by one phase per knockdown
+            // e.g. Phase 1 knockdown → boss HP floors at 750 (Phase 2 threshold)
+            const phaseFloors = { 1: PHASE_2_HP, 2: PHASE_3_HP, 3: PHASE_4_HP, 4: 0 };
+            const minHP = phaseFloors[currentPhaseRef.current] ?? 0;
+
+            if (bossHealthRef.current <= minHP) {
+              // Already at phase floor — show hint and skip damage
+              styleTextRef.current.push({
+                text: `COMPLETE PHASE ${currentPhaseRef.current} FIRST!`,
+                x: bossPosRef.current.x + BOSS_WIDTH / 2,
+                y: bossPosRef.current.y - 30,
+                time: Date.now(),
+                color: '#ff4444',
+              });
+            } else {
+              const newHP = Math.max(minHP, bossHealthRef.current - 50);
+              bossHealthRef.current = newHP;
+              setBossHealth(newHP);
+              triggerScreenShake(4, 200);
+              console.log(`⚔️ Boss hit! HP: ${newHP} (phase floor: ${minHP})`);
+            }
           }
         }
 
@@ -702,7 +722,7 @@ function EldenRingGate() {
 
   // ===== CLIMBING KEY HANDLER =====
   useEffect(() => {
-    if (yairRagePhase !== 'climbing') return;
+    if (ilarionRagePhase !== 'climbing') return;
 
     const handleClimbKey = (e) => {
       if (climbFallingRef.current) return;
@@ -735,11 +755,11 @@ function EldenRingGate() {
 
     window.addEventListener('keydown', handleClimbKey);
     return () => window.removeEventListener('keydown', handleClimbKey);
-  }, [yairRagePhase, climbCurrentStep]);
+  }, [ilarionRagePhase, climbCurrentStep]);
 
   // Per-key countdown timer — auto-fail if too slow
   useEffect(() => {
-    if (yairRagePhase !== 'climbing') {
+    if (ilarionRagePhase !== 'climbing') {
       if (climbTimerRef.current) { clearInterval(climbTimerRef.current); climbTimerRef.current = null; }
       return;
     }
@@ -762,11 +782,11 @@ function EldenRingGate() {
     return () => {
       if (climbTimerRef.current) { clearInterval(climbTimerRef.current); climbTimerRef.current = null; }
     };
-  }, [yairRagePhase, climbCurrentStep]);
+  }, [ilarionRagePhase, climbCurrentStep]);
 
   // Update knight position to follow climbing stones
   useEffect(() => {
-    if (yairRagePhase !== 'climbing') return;
+    if (ilarionRagePhase !== 'climbing') return;
     const stepIndex = Math.min(climbCurrentStep, CLIMB_STONE_LAYOUT.length - 1);
     const stone = CLIMB_STONE_LAYOUT[stepIndex];
     const sx = window.innerWidth * stone.x;
@@ -775,7 +795,7 @@ function EldenRingGate() {
       x: sx - KNIGHT_WIDTH / 2,
       y: sy - KNIGHT_VISUAL_Y_OFFSET - KNIGHT_HEIGHT + 60,
     });
-  }, [yairRagePhase, climbCurrentStep]);
+  }, [ilarionRagePhase, climbCurrentStep]);
 
   // ===== PHASE 1 ATTACKS =====
 
@@ -1100,6 +1120,41 @@ function EldenRingGate() {
     triggerScreenShake(5, 400);
   }
 
+  function sweepLasers() {
+    console.log('🔴 P4: Sweep Lasers');
+    const platformY = canvasSize.height - PLATFORM_HEIGHT;
+
+    // 3 beams at low / mid / high — staggered so player has to time jumps
+    const beams = [
+      { y: platformY - 55,  color: '#ff2222', core: '#ff8888' }, // low  — must jump
+      { y: platformY - 220, color: '#ff6600', core: '#ffaa44' }, // mid
+      { y: platformY - 390, color: '#cc00ff', core: '#ee88ff' }, // high — can pass under
+    ];
+
+    beams.forEach(({ y, color, core }, i) => {
+      setTimeout(() => {
+        if (currentPhaseRef.current !== 4) return;
+        const telegraphMs = 900;
+        lasersRef.current = [...lasersRef.current, {
+          id: Date.now() + Math.random(),
+          type: 'sweep',
+          x: canvasSize.width + 60,   // start off-screen right
+          y,
+          vx: -6,                     // sweep left
+          beamLength: 220,
+          color,
+          core,
+          telegraphStart: Date.now(),
+          fireTime: Date.now() + telegraphMs,
+          endTime: Date.now() + telegraphMs + 4000,
+          hasHit: false,
+        }];
+      }, i * 700);
+    });
+
+    triggerScreenShake(4, 300);
+  }
+
   function rocketStormStart() {
     rocketStormActiveRef.current = true;
     console.log('🌪️ P4: Rocket Storm ACTIVE');
@@ -1422,10 +1477,10 @@ function EldenRingGate() {
     });
   }
 
-  // ===== YAIR RAGE - WHATSAPP CALL + AIRFLOW CLIMBING =====
+  // ===== ILARION RAGE - WHATSAPP CALL + AIRFLOW CLIMBING =====
 
-  function triggerYairRage() {
-    yairRageActiveRef.current = true;
+  function triggerIlarionRage() {
+    ilarionRageActiveRef.current = true;
     // Clear all active projectiles
     rocketsRef.current = [];
     lasersRef.current = [];
@@ -1440,14 +1495,16 @@ function EldenRingGate() {
     lastStoneHitsRef.current = 0;
     setClimbDropCount(0);
     setLastStoneHits(0);
+    if (injuryMessageTimerRef.current) { clearTimeout(injuryMessageTimerRef.current); injuryMessageTimerRef.current = null; }
+    setShowInjuryMessage(false);
     setClimbCurrentStep(0);
     // Play whatup.mp3 ringtone
     const audio = new Audio(WHATUP_URL);
     audio.loop = true;
     whatupAudioRef.current = audio;
     audio.play().catch(() => {});
-    setYairRagePhase('ringing');
-    console.log('📞 YAIR RAGE - Phone ringing!');
+    setIlarionRagePhase('ringing');
+    console.log('📞 ILARION RAGE - Phone ringing!');
   }
 
   function handleAnswerCall() {
@@ -1456,20 +1513,20 @@ function EldenRingGate() {
       whatupAudioRef.current.pause();
       whatupAudioRef.current = null;
     }
-    // Start Yair speaking audio
-    const audio = new Audio(YAIR_URL);
-    yairAudioRef.current = audio;
+    // Start Ilarion speaking audio
+    const audio = new Audio(ILARION_URL);
+    ilarionAudioRef.current = audio;
     audio.play().catch(() => {});
-    // When Yair finishes speaking → transition to climbing
+    // When Ilarion finishes speaking → transition to climbing
     audio.onended = () => {
-      yairAudioRef.current = null;
+      ilarionAudioRef.current = null;
       if (speakingIntervalRef.current) { clearInterval(speakingIntervalRef.current); speakingIntervalRef.current = null; }
       // Start climbing music
       const dahkar = new Audio(DAHKAR_URL);
       dahkar.loop = true;
       dahkarAudioRef.current = dahkar;
       dahkar.play().catch(() => {});
-      setYairRagePhase('climbing');
+      setIlarionRagePhase('climbing');
       setKnightAnimation('__WallHang.gif');
       console.log('🧗 CLIMBING STARTED');
     };
@@ -1478,8 +1535,8 @@ function EldenRingGate() {
     speakingIntervalRef.current = setInterval(() => {
       setSpeakingElapsed(prev => prev + 1);
     }, 1000);
-    setYairRagePhase('speaking');
-    console.log('📱 Yair is speaking...');
+    setIlarionRagePhase('speaking');
+    console.log('📱 Ilarion is speaking...');
   }
 
   function handleClimbFail() {
@@ -1492,6 +1549,11 @@ function EldenRingGate() {
     const drops = climbDropCountRef.current;
     setClimbDropCount(drops);
 
+    // Show injury message in center for 3 seconds
+    if (injuryMessageTimerRef.current) clearTimeout(injuryMessageTimerRef.current);
+    setShowInjuryMessage(true);
+    injuryMessageTimerRef.current = setTimeout(() => setShowInjuryMessage(false), 3000);
+
     if (drops === 2) {
       climbSlowPenaltyRef.current = true;
     }
@@ -1500,10 +1562,10 @@ function EldenRingGate() {
       // 3rd drop = death
       setTimeout(() => {
         if (dahkarAudioRef.current) { dahkarAudioRef.current.pause(); dahkarAudioRef.current = null; }
-        setYairRagePhase('climbDeath');
+        setIlarionRagePhase('climbDeath');
         setTimeout(() => {
-          setYairRagePhase(null);
-          yairRageActiveRef.current = false;
+          setIlarionRagePhase(null);
+          ilarionRageActiveRef.current = false;
           playerHealthRef.current = 0;
           setPlayerHealth(0);
           gameOverRef.current = true;
@@ -1529,12 +1591,12 @@ function EldenRingGate() {
     climbFallingRef.current = true; // block further input
     if (climbTimerRef.current) { clearInterval(climbTimerRef.current); climbTimerRef.current = null; }
     if (dahkarAudioRef.current) { dahkarAudioRef.current.pause(); dahkarAudioRef.current = null; }
-    setYairRagePhase('success');
+    setIlarionRagePhase('success');
     console.log('✅ GENERATOR ONLINE — resuming Phase 4!');
 
     setTimeout(() => {
-      setYairRagePhase(null);
-      yairRageActiveRef.current = false;
+      setIlarionRagePhase(null);
+      ilarionRageActiveRef.current = false;
       // Apply slow penalty from left leg broken
       if (climbSlowPenaltyRef.current) {
         isSlowedRef.current = true;
@@ -1570,14 +1632,14 @@ function EldenRingGate() {
     ratRef.current = null;
     rocketStormActiveRef.current = false;
     giantCoinRef.current = null;
-    // Cancel yair rage if active
-    if (yairRageActiveRef.current) {
-      yairRageActiveRef.current = false;
+    // Cancel ilarion rage if active
+    if (ilarionRageActiveRef.current) {
+      ilarionRageActiveRef.current = false;
       if (whatupAudioRef.current) { whatupAudioRef.current.pause(); whatupAudioRef.current = null; }
-      if (yairAudioRef.current) { yairAudioRef.current.pause(); yairAudioRef.current = null; }
+      if (ilarionAudioRef.current) { ilarionAudioRef.current.pause(); ilarionAudioRef.current = null; }
       if (dahkarAudioRef.current) { dahkarAudioRef.current.pause(); dahkarAudioRef.current = null; }
       if (speakingIntervalRef.current) { clearInterval(speakingIntervalRef.current); speakingIntervalRef.current = null; }
-      setYairRagePhase(null);
+      setIlarionRagePhase(null);
     }
     // Init phase
     if (phase === 2) {
@@ -1597,7 +1659,7 @@ function EldenRingGate() {
     if (gameOver || victory) return;
 
     const gameLoop = setInterval(() => {
-      if (yairRageActiveRef.current) return; // Pause game loop during Yair Rage
+      if (ilarionRageActiveRef.current) return; // Pause game loop during Ilarion Rage
       const now = Date.now();
       const platformY = canvasSize.height - PLATFORM_HEIGHT;
 
@@ -1740,8 +1802,8 @@ function EldenRingGate() {
                       rocketRain();
                       setTimeout(() => {
                         if (currentPhaseRef.current === 4) {
-                          // Phase 4 knockdown triggers Yair Rage instead
-                          triggerYairRage();
+                          // Phase 4 knockdown triggers Ilarion Rage instead
+                          triggerIlarionRage();
                         } else {
                           bossStateRef.current = BOSS_KNOCKED;
                           bossStateTimerRef.current = Date.now();
@@ -1776,6 +1838,9 @@ function EldenRingGate() {
                     break;
                   case 'laserGrid':
                     laserGrid();
+                    break;
+                  case 'sweepLasers':
+                    sweepLasers();
                     break;
                   case 'rocketStormStart':
                     rocketStormStart();
@@ -1916,15 +1981,35 @@ function EldenRingGate() {
 
             // Respawn phase enemies with delay
             if (currentPhaseRef.current === 2 && !droneRef.current) {
-              enemyRespawnTimeRef.current = now + ENEMY_RESPAWN_DELAY;
-              setTimeout(() => {
-                if (currentPhaseRef.current === 2 && !droneRef.current && bossStateRef.current === BOSS_FLYING) {
-                  spawnDrone();
-                  console.log('🤖 Drone respawned for Phase 2');
-                }
-              }, ENEMY_RESPAWN_DELAY);
+              // Check if boss HP crossed into phase 3 during this knockdown
+              if (bossHealthRef.current <= PHASE_3_HP) {
+                // Transition to phase 3 — spawn rat instead of drone
+                currentPhaseRef.current = 3;
+                phaseStartTimeRef.current = now + ENEMY_RESPAWN_DELAY;
+                executedActionsRef.current = new Set();
+                enemyRespawnTimeRef.current = now + ENEMY_RESPAWN_DELAY;
+                setTimeout(() => {
+                  if (currentPhaseRef.current === 3 && !ratRef.current && bossStateRef.current === BOSS_FLYING) {
+                    spawnRat();
+                    console.log('🐀 Rat spawned — Phase 3 started');
+                  }
+                }, ENEMY_RESPAWN_DELAY);
+              } else {
+                // Boss still in phase 2 HP range — respawn drone
+                enemyRespawnTimeRef.current = now + ENEMY_RESPAWN_DELAY;
+                setTimeout(() => {
+                  if (currentPhaseRef.current === 2 && !droneRef.current && bossStateRef.current === BOSS_FLYING) {
+                    droneHealthRef.current = P2_DRONE_HP;
+                    spawnDrone();
+                    console.log('🤖 Drone respawned — still Phase 2');
+                  }
+                }, ENEMY_RESPAWN_DELAY);
+              }
             }
             if (currentPhaseRef.current === 3 && !ratRef.current) {
+              // Rat died mid-phase — respawn it
+              phaseStartTimeRef.current = now + ENEMY_RESPAWN_DELAY;
+              executedActionsRef.current = new Set();
               enemyRespawnTimeRef.current = now + ENEMY_RESPAWN_DELAY;
               setTimeout(() => {
                 if (currentPhaseRef.current === 3 && !ratRef.current && bossStateRef.current === BOSS_FLYING) {
@@ -1992,13 +2077,9 @@ function EldenRingGate() {
           bossStateRef.current = BOSS_KNOCKED;
           bossStateTimerRef.current = now;
           knockedFrameRef.current = 0;
-          // Auto-trigger phase 3 transition when drone is destroyed
-          currentPhaseRef.current = 3;
-          phaseStartTimeRef.current = now;
-          executedActionsRef.current = new Set();
-          spawnRat();
+          // Stay in phase 2 — RECOVERING handler will check HP and decide
           triggerScreenShake(8, 500);
-          console.log('🤖 Drone destroyed! Boss stunned! Moving to Phase 3...');
+          console.log('🤖 Drone destroyed! Boss stunned!');
         }
       }
 
@@ -2132,8 +2213,36 @@ function EldenRingGate() {
                 setGameOver(true);
               }
             }
+          } else if (laser.type === 'sweep') {
+            // Beam rect: from (x - beamLength) to x, height 16px centered on y
+            const beamLeft = laser.x - laser.beamLength;
+            const beamRight = laser.x;
+            const beamTop = laser.y - 8;
+            const beamBottom = laser.y + 8;
+            if (
+              knightHitbox.right > beamLeft && knightHitbox.left < beamRight &&
+              knightHitbox.bottom > beamTop && knightHitbox.top < beamBottom
+            ) {
+              laser.hasHit = true;
+              const newHP = Math.max(0, playerHealthRef.current - 20);
+              playerHealthRef.current = newHP;
+              setPlayerHealth(newHP);
+              triggerScreenShake(6, 250);
+              if (newHP <= 0) {
+                gameOverRef.current = true;
+                setGameOver(true);
+              }
+            }
           }
         }
+
+        // Move sweep lasers
+        if (laser.type === 'sweep' && now >= laser.fireTime) {
+          laser.x += laser.vx;
+        }
+
+        // Remove sweep laser once fully off-screen left
+        if (laser.type === 'sweep' && laser.x + laser.beamLength < 0) return false;
 
         return true;
       });
@@ -3022,53 +3131,6 @@ function EldenRingGate() {
         }
       });
 
-      // ===== PHASE 4: LASERS =====
-      lasersRef.current.forEach(laser => {
-        const isTelegraph = now < laser.fireTime;
-
-        if (laser.type === 'horizontal') {
-          if (isTelegraph) {
-            // Telegraph (dashed red line)
-            ctx.save();
-            ctx.strokeStyle = '#ff4444';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 5]);
-            ctx.beginPath();
-            ctx.moveTo(0, laser.y);
-            ctx.lineTo(canvasSize.width, laser.y);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
-          } else {
-            // Active laser beam
-            ctx.fillStyle = '#ff0000';
-            ctx.fillRect(0, laser.y - 10, canvasSize.width, 20);
-            ctx.fillStyle = '#ffff00';
-            ctx.fillRect(0, laser.y - 5, canvasSize.width, 10);
-          }
-        } else if (laser.type === 'vertical') {
-          if (isTelegraph) {
-            // Telegraph
-            ctx.save();
-            ctx.strokeStyle = '#ff4444';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 5]);
-            ctx.beginPath();
-            ctx.moveTo(laser.x, 0);
-            ctx.lineTo(laser.x, canvasSize.height);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
-          } else {
-            // Active laser beam
-            ctx.fillStyle = '#ff0000';
-            ctx.fillRect(laser.x - 10, 0, 20, canvasSize.height);
-            ctx.fillStyle = '#ffff00';
-            ctx.fillRect(laser.x - 5, 0, 10, canvasSize.height);
-          }
-        }
-      });
-
       // ===== PHASE 4: CLONES =====
       if (bossClonesRef.current.length > 0) {
         bossClonesRef.current.forEach((clone) => {
@@ -3120,11 +3182,105 @@ function EldenRingGate() {
             ctx.fillStyle = '#fff';
             ctx.font = 'bold 30px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('YAIR', bossX + BOSS_WIDTH / 2, bossY + BOSS_HEIGHT / 2);
+            ctx.fillText('ILARION', bossX + BOSS_WIDTH / 2, bossY + BOSS_HEIGHT / 2);
           }
 
         }
       }
+
+      // ===== PHASE 4: LASERS (drawn after boss so they appear on top) =====
+      lasersRef.current.forEach(laser => {
+        const isTelegraph = now < laser.fireTime;
+
+        if (laser.type === 'horizontal') {
+          if (isTelegraph) {
+            ctx.save();
+            ctx.strokeStyle = '#ff2222';
+            ctx.lineWidth = 4;
+            ctx.globalAlpha = 0.6;
+            ctx.setLineDash([14, 6]);
+            ctx.shadowColor = '#ff2222';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.moveTo(0, laser.y);
+            ctx.lineTo(canvasSize.width, laser.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+          } else {
+            ctx.save();
+            ctx.shadowColor = '#ff2222';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = '#ff2222';
+            ctx.fillRect(0, laser.y - 10, canvasSize.width, 20);
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = '#ff8888';
+            ctx.fillRect(0, laser.y - 4, canvasSize.width, 8);
+            ctx.restore();
+          }
+        } else if (laser.type === 'vertical') {
+          if (isTelegraph) {
+            ctx.save();
+            ctx.strokeStyle = '#ff6600';
+            ctx.lineWidth = 4;
+            ctx.globalAlpha = 0.6;
+            ctx.setLineDash([14, 6]);
+            ctx.shadowColor = '#ff6600';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.moveTo(laser.x, 0);
+            ctx.lineTo(laser.x, canvasSize.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+          } else {
+            ctx.save();
+            ctx.shadowColor = '#ff6600';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = '#ff6600';
+            ctx.fillRect(laser.x - 10, 0, 20, canvasSize.height);
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = '#ffaa44';
+            ctx.fillRect(laser.x - 4, 0, 8, canvasSize.height);
+            ctx.restore();
+          }
+        } else if (laser.type === 'sweep') {
+          if (isTelegraph) {
+            ctx.save();
+            ctx.strokeStyle = laser.color;
+            ctx.lineWidth = 4;
+            ctx.globalAlpha = 0.55;
+            ctx.setLineDash([18, 8]);
+            ctx.shadowColor = laser.color;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.moveTo(0, laser.y);
+            ctx.lineTo(canvasSize.width, laser.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = laser.color;
+            ctx.font = 'bold 22px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText('▶▶▶', canvasSize.width - 12, laser.y + 7);
+            ctx.restore();
+          } else {
+            const beamLeft = laser.x - laser.beamLength;
+            ctx.save();
+            ctx.shadowColor = laser.color;
+            ctx.shadowBlur = 18;
+            ctx.fillStyle = laser.color;
+            ctx.fillRect(beamLeft, laser.y - 10, laser.beamLength, 20);
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = laser.core;
+            ctx.fillRect(beamLeft, laser.y - 4, laser.beamLength, 8);
+            ctx.shadowBlur = 30;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(laser.x - 12, laser.y - 14, 12, 28);
+            ctx.restore();
+          }
+        }
+      });
 
       // ===== ROCKETS =====
       const rockets = rocketsRef.current;
@@ -3951,15 +4107,15 @@ function EldenRingGate() {
   return (
     <div className="eldenring-container">
 
-      {/* Game music — hidden during Yair Rage */}
-      {!yairRagePhase && (
+      {/* Game music — hidden during Ilarion Rage */}
+      {!ilarionRagePhase && (
         <GateMusic key={currentMusic} src={currentMusic} startTime={currentMusic.includes('hava nagila') ? 6 : 0} />
       )}
 
       {/* Title */}
       <div className="game-header">
-        <h1 className="game-title glitch" data-text="THE TARNISHED VS. YAIR TAITO, LORD OF ASH">
-          THE TARNISHED VS. YAIR TAITO, LORD OF ASH
+        <h1 className="game-title glitch" data-text="THE TARNISHED VS. ILARION, LORD OF ASH">
+          THE TARNISHED VS. ILARION, LORD OF ASH
         </h1>
       </div>
 
@@ -4024,7 +4180,7 @@ function EldenRingGate() {
         <div className="game-over-overlay victory-overlay">
           <div className="game-over-content">
             <h1 className="victory-title">VICTORY ACHIEVED</h1>
-            <p className="victory-subtitle">Yair, Lord of Ash has been defeated!</p>
+            <p className="victory-subtitle">Ilarion, Lord of Ash has been defeated!</p>
             <p className="victory-stats">The flying menace has fallen!</p>
             <button
               className="restart-btn victory-btn"
@@ -4036,8 +4192,8 @@ function EldenRingGate() {
         </div>
       )}
 
-      {/* ===== YAIR RAGE - WHATSAPP CALL SCREEN ===== */}
-      {yairRagePhase === 'ringing' && (
+      {/* ===== ILARION RAGE - WHATSAPP CALL SCREEN ===== */}
+      {ilarionRagePhase === 'ringing' && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 3000,
           background: 'radial-gradient(ellipse at 50% 40%, #0d2b28 0%, #040d0c 100%)',
@@ -4151,8 +4307,8 @@ function EldenRingGate() {
         </div>
       )}
 
-      {/* ===== YAIR RAGE - SPEAKING SCREEN (yair.mp3 playing) ===== */}
-      {yairRagePhase === 'speaking' && (
+      {/* ===== ILARION RAGE - SPEAKING SCREEN (yair.mp3 playing) ===== */}
+      {ilarionRagePhase === 'speaking' && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 3000,
           background: 'radial-gradient(ellipse at 50% 40%, #0d2b28 0%, #040d0c 100%)',
@@ -4280,8 +4436,8 @@ function EldenRingGate() {
         </div>
       )}
 
-      {/* ===== YAIR RAGE - CLIMBING SCREEN ===== */}
-      {yairRagePhase === 'climbing' && (
+      {/* ===== ILARION RAGE - CLIMBING SCREEN ===== */}
+      {ilarionRagePhase === 'climbing' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 3000, overflow: 'hidden' }}>
           {/* Airflow background — full screen */}
           <img
@@ -4291,6 +4447,46 @@ function EldenRingGate() {
           />
           {/* Dark overlay for contrast */}
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
+
+          {/* Center-screen injury status — shown for 3s after each fall */}
+          {showInjuryMessage && climbDropCount >= 1 && (
+            <div style={{
+              position: 'absolute',
+              top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 20,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+              pointerEvents: 'none',
+            }}>
+              <div style={{
+                background: 'rgba(180,0,0,0.75)',
+                border: '2px solid rgba(255,80,80,0.7)',
+                borderRadius: 14,
+                padding: '18px 40px',
+                textAlign: 'center',
+                boxShadow: '0 0 40px rgba(255,0,0,0.35), 0 8px 32px rgba(0,0,0,0.7)',
+                backdropFilter: 'blur(6px)',
+              }}>
+                <div style={{
+                  fontFamily: 'monospace', fontWeight: 900,
+                  fontSize: '1.5rem', color: '#ff4444',
+                  letterSpacing: 2, textTransform: 'uppercase',
+                  textShadow: '0 0 18px rgba(255,80,80,0.8)',
+                  marginBottom: 8,
+                }}>
+                  {climbDropCount === 1 ? '✋ Right hand broken' : '✋ Right hand   🦵 Left leg broken'}
+                </div>
+                <div style={{
+                  fontFamily: 'monospace', fontSize: '0.95rem',
+                  color: 'rgba(255,200,200,0.85)', letterSpacing: 1,
+                }}>
+                  {climbDropCount === 1
+                    ? 'Climbing speed reduced — one more fall ends the run'
+                    : 'Nearly crippled — this is your last chance'}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Header bar */}
           <div style={{
@@ -4321,18 +4517,8 @@ function EldenRingGate() {
               </div>
             </div>
 
-            {/* Right: status chips */}
+            {/* Right: progress + attempts */}
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              {climbDropCount >= 1 && (
-                <div style={{
-                  background: 'rgba(255,50,50,0.15)',
-                  border: '1px solid rgba(255,80,80,0.4)',
-                  borderRadius: 6, padding: '3px 10px',
-                  color: '#ff6666', fontFamily: 'monospace', fontWeight: 700, fontSize: '0.78rem',
-                }}>
-                  {climbDropCount === 1 ? '✋ Right hand broken' : '✋ Right hand  🦵 Left leg broken'}
-                </div>
-              )}
               <div style={{
                 background: 'rgba(255,255,255,0.07)',
                 border: '1px solid rgba(255,255,255,0.12)',
@@ -4514,8 +4700,8 @@ function EldenRingGate() {
         </div>
       )}
 
-      {/* ===== YAIR RAGE - SUCCESS SCREEN ===== */}
-      {yairRagePhase === 'success' && (
+      {/* ===== ILARION RAGE - SUCCESS SCREEN ===== */}
+      {ilarionRagePhase === 'success' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 3000, overflow: 'hidden' }}>
           <img
             src={AIRFLOW_UNPAUZED_URL}
@@ -4544,7 +4730,7 @@ function EldenRingGate() {
       )}
 
       {/* ===== CLIMB DEATH SCREEN ===== */}
-      {yairRagePhase === 'climbDeath' && (
+      {ilarionRagePhase === 'climbDeath' && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 3000, overflow: 'hidden',
           background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
@@ -4581,7 +4767,7 @@ function EldenRingGate() {
       )}
 
       {/* ===== PHASE SWITCHER (dev testing) ===== */}
-      {!gameOver && !victory && !yairRagePhase && (
+      {!gameOver && !victory && !ilarionRagePhase && (
         <div style={{
           position: 'fixed', bottom: 20, right: 20, zIndex: 200,
           display: 'flex', gap: 8, flexDirection: 'column', alignItems: 'flex-end',
