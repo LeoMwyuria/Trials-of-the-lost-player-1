@@ -16,7 +16,7 @@ const beeTypes = [
   { id: 10, name: 'Killua', rarity: 'THE GOAT', color: '#A0522D', image: new URL('../assets/bees-png/killua.png', import.meta.url).href },
   { id: 11, name: 'Irakli', rarity: 'BuzuBuzu', color: '#FFD700', image: new URL('../assets/bees-png/irakli.png', import.meta.url).href },
   { id: 12, name: 'Goris Vashli', rarity: 'Gemrieli', color: '#F0E68C', image: new URL('../assets/bees-png/gori.jpeg', import.meta.url).href },
-  { id: 13, name: 'Mclovin', rarity: 'Sigma', color: '#8B4513', image: new URL('../assets/bees-png/foggel.png', import.meta.url).href },
+  { id: 13, name: 'Mclovin', rarity: 'Ilarion', color: '#8B4513', image: new URL('../assets/bees-png/foggel.png', import.meta.url).href },
   { id: 14, name: 'Acharul Khachapur', rarity: 'Imeruli >>', color: '#FF4500', image: new URL('../assets/bees-png/adj.jpg', import.meta.url).href },
   { id: 15, name: 'Horse', rarity: 'SUS', color: '#DC143C', image: new URL('../assets/bees-png/horse.jpg', import.meta.url).href },
   { id: 16, name: 'Microsoft Edge', rarity: 'Snail', color: '#DAA520', image: new URL('../assets/bees-png/microsoft.webp', import.meta.url).href },
@@ -499,7 +499,7 @@ function BeeHiveGate() {
       {/* Tarnished Message */}
       {showTarnishedMessage && (
         <div className="tarnished-message-overlay">
-          <div className="tarnished-message">Foul Tarnished, in search of the Sigma Boss.</div>
+          <div className="tarnished-message">Foul Tarnished, in search of the Ilarion Boss.</div>
         </div>
       )}
 
