@@ -548,7 +548,7 @@ function EldenRingGate() {
           isParryingRef.current = true;
           parryWindowEndRef.current = now + PARRY_WINDOW;
           parryCooldownEndRef.current = now + PARRY_COOLDOWN;
-          setKnightAnimation('__Attack2.gif');
+          setKnightAnimation('__AttackComboNoMovement.gif');
         }
       }
     };
@@ -703,7 +703,7 @@ function EldenRingGate() {
           isParryingRef.current = true;
           parryWindowEndRef.current = now + PARRY_WINDOW;
           parryCooldownEndRef.current = now + PARRY_COOLDOWN;
-          setKnightAnimation('__Attack2.gif');
+          setKnightAnimation('__AttackComboNoMovement.gif');
         }
       }
     };
