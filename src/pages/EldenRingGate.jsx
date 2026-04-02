@@ -400,6 +400,7 @@ function EldenRingGate() {
 
   // Ilarion Rage refs
   const ilarionRageActiveRef = useRef(false);
+  const ilarionRageUsedRef = useRef(false); // only triggers once per run
   const climbKeysRef = useRef([]);
   const climbFallingRef = useRef(false);
   const climbSlowPenaltyRef = useRef(false);
@@ -1801,8 +1802,9 @@ function EldenRingGate() {
                     if (event.knockdown) {
                       rocketRain();
                       setTimeout(() => {
-                        if (currentPhaseRef.current === 4) {
-                          // Phase 4 knockdown triggers Ilarion Rage instead
+                        if (currentPhaseRef.current === 4 && !ilarionRageUsedRef.current) {
+                          // Phase 4 first knockdown triggers Ilarion Rage
+                          ilarionRageUsedRef.current = true;
                           triggerIlarionRage();
                         } else {
                           bossStateRef.current = BOSS_KNOCKED;
