@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import GateMusic from '../components/GateMusic';
 import './BeeHiveGate.css';
+
+const ROCKY_SRC = new URL('../assets/audio/rocky.mp3', import.meta.url).href;
 
 // List of 15-20 bee types (PNG images)
 const beeTypes = [
@@ -26,6 +28,84 @@ const beeTypes = [
   { id: 20, name: 'Anbanis Koshk', rarity: 'Hell', color: '#FFB6C1', image: new URL('../assets/bees-png/anban.jpg', import.meta.url).href },
 ];
 
+function PinkStars() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animId;
+    const stars = [];
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Pre-spawn stars across the screen
+    for (let i = 0; i < 60; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 2 + 1,
+        speed: Math.random() * 1.5 + 0.5,
+        alpha: Math.random() * 0.5 + 0.3,
+      });
+    }
+
+    let spawnTimer = 0;
+    const loop = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Spawn new stars
+      spawnTimer++;
+      if (spawnTimer % 10 === 0 && stars.length < 80) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: -5,
+          r: Math.random() * 2 + 1,
+          speed: Math.random() * 1.5 + 0.5,
+          alpha: Math.random() * 0.5 + 0.3,
+        });
+      }
+
+      for (let i = stars.length - 1; i >= 0; i--) {
+        const s = stars[i];
+        s.y += s.speed;
+        if (s.y > canvas.height + 10) {
+          stars.splice(i, 1);
+          continue;
+        }
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 105, 180, ${s.alpha})`;
+        ctx.shadowColor = '#ff69b4';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+
+      animId = requestAnimationFrame(loop);
+    };
+    animId = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}
+    />
+  );
+}
+
 function BeeHiveGate() {
   const [eggs, setEggs] = useState(10); // 10 royal jellies
   const [hiveSlots, setHiveSlots] = useState([null, null, null, null, null]); // 5 slots
@@ -47,6 +127,8 @@ function BeeHiveGate() {
   const [showGameLost, setShowGameLost] = useState(false);
   const [showMeteorMessage, setShowMeteorMessage] = useState(false);
   const [showTarnishedMessage, setShowTarnishedMessage] = useState(false);
+  const [hideBeeMusic, setHideBeeMusic] = useState(false);
+  const rockyRef = useRef(null);
 
   const revealedMeteorSequence = meteorCode
     ? meteorCode
@@ -211,6 +293,16 @@ function BeeHiveGate() {
         setMeteors(generateMeteors(code));
         setShowMeteorPuzzle(true);
         setShowMeteorMessage(false);
+
+        // Switch from bee swarm OST to rocky
+        setHideBeeMusic(true);
+        const savedVol = localStorage.getItem('gate_music_volume');
+        const vol = savedVol !== null ? parseFloat(savedVol) : 0.2;
+        const rocky = new Audio(ROCKY_SRC);
+        rocky.volume = vol;
+        rocky.loop = true;
+        rocky.play().catch(() => {});
+        rockyRef.current = rocky;
       }, 3000);
     } else {
       // HAKARI WINS BUT WRONG BET
@@ -272,6 +364,7 @@ function BeeHiveGate() {
     e.preventDefault();
     if (userAnswer.toLowerCase() === meteorCode.toLowerCase()) {
       // CORRECT! Proceed to next gate
+      if (rockyRef.current) { rockyRef.current.pause(); rockyRef.current = null; }
       alert('Challenge Complete! Proceeding to The Last Harvest...');
       setTimeout(() => {
         window.location.href = '/gate-3-the-last-harvest';
@@ -298,7 +391,7 @@ function BeeHiveGate() {
   return (
     <div className="beehive-container">
 
-      <GateMusic src={new URL('../assets/audio/Bee Swarm Simulator  OST - Wax.mp3', import.meta.url).href} />
+      {!hideBeeMusic && <GateMusic src={new URL('../assets/audio/Bee Swarm Simulator  OST - Wax.mp3', import.meta.url).href} />}
 
       <div className="stars"></div>
       <div className="twinkling"></div>
@@ -506,6 +599,9 @@ function BeeHiveGate() {
       {/* Meteor Puzzle */}
       {showMeteorPuzzle && (
         <div className="meteor-puzzle-overlay">
+          {/* Pink Stars Background */}
+          <PinkStars />
+
           {/* Answer Box at Top */}
           <div className="answer-box-container">
             <form onSubmit={handleAnswerSubmit} className="answer-form">

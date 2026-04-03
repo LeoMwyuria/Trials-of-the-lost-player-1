@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './LastHarvestPuzzle.css';
+import '../components/GateMusic.css';
 
 const AUDIO_V2        = new URL('../assets/audio/v2.mp3', import.meta.url).href;
 const AUDIO_DELIRIOUS = new URL('../assets/audio/Delirious.mp3', import.meta.url).href;
@@ -354,16 +355,30 @@ function LastHarvestPuzzle() {
   const narratorTimers  = useRef([]);
   const [showIntro, setShowIntro]         = useState(true);
   const [narratorPhase, setNarratorPhase] = useState(null);
+  const [showMusicControls, setShowMusicControls] = useState(false);
+  const [musicVolume, setMusicVolume] = useState(() => {
+    const saved = localStorage.getItem('gate_music_volume');
+    return saved !== null ? parseFloat(saved) : 0.2;
+  });
+
+  // Apply volume multiplier to all audio refs when musicVolume changes
+  useEffect(() => {
+    const multiplier = musicVolume / 0.2; // normalize: 0.2 is the default "100%"
+    if (v2Ref.current) v2Ref.current.volume = Math.min(1, 0.6 * multiplier);
+    if (deliriousRef.current) deliriousRef.current.volume = Math.min(1, 0.08 * multiplier);
+    if (catanRef.current) catanRef.current.volume = Math.min(1, 0.2 * multiplier);
+  }, [musicVolume]);
 
   // Set up audio objects on mount (do not play yet)
   useEffect(() => {
+    const multiplier = musicVolume / 0.2;
     const v2       = new Audio(AUDIO_V2);
     const delirious = new Audio(AUDIO_DELIRIOUS);
     const catan    = new Audio(AUDIO_CATAN);
-    v2.volume        = 0.6;
-    delirious.volume = 0.08;
+    v2.volume        = Math.min(1, 0.6 * multiplier);
+    delirious.volume = Math.min(1, 0.08 * multiplier);
     delirious.loop   = true;
-    catan.volume     = 0.2;
+    catan.volume     = Math.min(1, 0.2 * multiplier);
     catan.loop       = true;
     v2Ref.current        = v2;
     deliriousRef.current = delirious;
@@ -645,6 +660,43 @@ function LastHarvestPuzzle() {
 
   return (
     <div className="catan-puzzle-container">
+
+      {/* Music Volume Control */}
+      <div className="gate-music-toggle">
+        <button
+          className="gate-music-btn"
+          onClick={() => setShowMusicControls(!showMusicControls)}
+          title="Music Controls"
+        >
+          🎵
+        </button>
+      </div>
+      {showMusicControls && (
+        <div className="gate-music-panel">
+          <button className="gate-music-close" onClick={() => setShowMusicControls(false)}>
+            ✕
+          </button>
+          <div className="gate-music-controls">
+            <div className="gate-music-volume">
+              <span className="gate-music-vol-label">VOL</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={musicVolume}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  setMusicVolume(v);
+                  localStorage.setItem('gate_music_volume', v.toString());
+                }}
+                className="gate-music-slider"
+              />
+              <span className="gate-music-vol-value">{Math.round(musicVolume * 100)}%</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* JJK Intro Dialog */}
       {showIntro && (() => {

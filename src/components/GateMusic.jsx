@@ -9,7 +9,10 @@ import './GateMusic.css';
  */
 function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange, startTime = 0 }) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(initialVolume);
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('gate_music_volume');
+    return saved !== null ? parseFloat(saved) : initialVolume;
+  });
   const [showControls, setShowControls] = useState(false);
   const audioRef = useRef(null);
 
@@ -76,6 +79,7 @@ function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange, s
   const handleVolumeChange = (e) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume);
+    localStorage.setItem('gate_music_volume', newVolume.toString());
   };
 
   return (

@@ -78,6 +78,7 @@ const ASSETS_TO_PRELOAD = {
     new URL('../assets/audio/whatup.mp3', import.meta.url).href,
     new URL('../assets/audio/ilarion.mp3', import.meta.url).href,
     new URL('../assets/audio/dahkar.mp3', import.meta.url).href,
+    new URL('../assets/audio/rocky.mp3', import.meta.url).href,
   ]
 };
 
