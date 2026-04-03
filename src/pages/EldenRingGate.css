@@ -379,8 +379,16 @@
 .victory-stats {
   font-size: 1.3rem;
   color: #ff8800;
-  margin: 0 0 40px 0;
+  margin: 0 0 20px 0;
   text-shadow: 0 0 10px rgba(255, 136, 0, 0.6);
+}
+
+.victory-thanks {
+  font-size: 1.2rem;
+  color: #ff69b4;
+  margin: 0 0 40px 0;
+  text-shadow: 0 0 10px rgba(255, 105, 180, 0.6);
+  font-style: italic;
 }
 
 .victory-btn {

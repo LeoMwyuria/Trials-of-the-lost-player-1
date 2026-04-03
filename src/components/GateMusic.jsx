@@ -7,7 +7,7 @@ import './GateMusic.css';
  * @param {boolean} autoplay - Whether to autoplay (default: true)
  * @param {number} initialVolume - Starting volume 0-1 (default: 0.2 = 20%)
  */
-function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange, startTime = 0 }) {
+function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange, startTime = 0, paused = false }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem('gate_music_volume');
@@ -56,6 +56,18 @@ function GateMusic({ src, autoplay = true, initialVolume = 0.2, onTrackChange, s
       audioRef.current.volume = volume;
     }
   }, [volume]);
+
+  // Pause/resume without destroying the audio element
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (paused) {
+      audio.pause();
+      setIsPlaying(false);
+    } else if (audio.paused && audio.currentTime > 0) {
+      audio.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  }, [paused]);
 
   useEffect(() => {
     // Notify parent when track changes (for Gate 4 phase switching)

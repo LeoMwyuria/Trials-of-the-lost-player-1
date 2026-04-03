@@ -4062,10 +4062,8 @@ function EldenRingGate() {
   return (
     <div className="eldenring-container">
 
-      {/* Game music — hidden during Ilarion Rage */}
-      {!ilarionRagePhase && (
-        <GateMusic key={currentMusic} src={currentMusic} startTime={currentMusic.includes('hava nagila') ? 6 : 0} />
-      )}
+      {/* Game music — paused during Ilarion Rage, resumes where it left off */}
+      <GateMusic key={currentMusic} src={currentMusic} startTime={currentMusic.includes('hava nagila') ? 6 : 0} paused={!!ilarionRagePhase} />
 
       {/* Title */}
       <div className="game-header">
@@ -4138,11 +4136,12 @@ function EldenRingGate() {
             <h1 className="victory-title">VICTORY ACHIEVED</h1>
             <p className="victory-subtitle">Ilarion, Lord of Ash has been defeated!</p>
             <p className="victory-stats">The flying menace has fallen!</p>
+            <p className="victory-thanks">Thanks for your patience, love you &lt;3</p>
             <button
               className="restart-btn victory-btn"
-              onClick={() => window.location.reload()}
+              onClick={() => window.location.href = '/'}
             >
-              PLAY AGAIN
+              RETURN HOME
             </button>
           </div>
         </div>
