@@ -82,20 +82,20 @@ const CORRECT_ANSWER = ['now', 'you', 'feel', 'like', 'number', 'one'];
 const DISTRACTOR_WORDS = [
   'now', 'you', 'feel', 'like', 'number', 'one',
   'echo', 'shadow', 'velocity', 'pulse', 'coin', 'horizon',
-  'cipher', 'drift', 'ember', 'gold', 'gravity', 'luminous',
-  'phantom', 'opus 4.6', 'rift', 'spectrum', 'twilight', 'vortex',
+  'cipher', 'pipin', 'short', '4', 'moon', 'luminous',
+  'phantom', 'opus 4.6', 'rift', 'wignebis', 'twilight', 'vortex',
   'zenith', 'cascade', 'mirage', 'nova', 'orbit', 'paradox',
-  'tiplati', 'silhouette', 'tempo', 'unity', 'whisper', 'xenon',
-  'yearn', 'zephyr', 'aurora', 'blaze', 'cosmic', 'dynamo',
-  'eclipse', 'next', 'galaxy', 'halo', 'illusion', 'journey',
-  'nebula', 'stellar', 'infinity', 'momentum', 'serenity', 'odyssey',
+  'tiplati', 'chdrili', 'taro', 'unity', 'whisper', 'xenon',
+  'yearn', 'rabadan', 'aurora', 'blaze', 'cosmic', 'dynamo',
+  'eclipse', 'next', 'galaxy', 'halo', 'ara', 'journey',
+  'galaxy', 'stellar', 'infinity', 'momentum', 'batumi', 'odyssey',
   'gia', 'brew', 'velocity', 'inertia', 'harmony', 'entropy',
   'prism', 'crystal', 'jew', 'nightfall', 'benjamin', 'netanyahu',
-  'starlight', 'sigma', 'sunflare', 'retard', 'tidal', 'deepwave',
-  'skylark', 'stormfront', 'rainfall', 'thunder', 'lightning', 'frost',
-  'glacier', 'summit', 'valley', 'israel', 'meadow', 'river',
-  'ocean', 'desert', 'island', 'volcano', 'bakhmaro', 'cliff',
-  'meow', 'gust', 'cyclone', 'tempest', 'yuran', 'mtis',];
+  'starlight', 'sigma', 'sunflare', 'retard', 'tidal', 'shavi',
+  'skylark', 'gay', 'rainfall', 'thunder', 'lightning', 'zgva',
+  'glacier', 'summit', 'valley', 'israel', 'meadow', 'giorgi',
+  'tsarakua', 'desert', 'island', 'volcano', 'bakhmaro', 'cliff',
+  'meow', 'nuts', 'cyclone', 'tempest', 'yuran', 'mtis',];
 
 function LibraryGate() {
   const navigate = useNavigate();
